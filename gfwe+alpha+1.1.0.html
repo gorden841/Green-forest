@@ -1,0 +1,1802 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>绿色森林</title>
+    <style>
+        body, #game-container { margin: 0; overflow: hidden; touch-action: manipulation; -webkit-user-select: none; user-select: none; background-color: #8FBC8F; }
+        .recipe-page { display: none; }
+        .recipe-page.active { display: block; }
+        .pagination-controls { display: flex; justify-content: space-between; margin-top: 20px; }
+        #crafting-page { font-size: 1rem; color: #FF8C00; margin-left: 10px; }
+        .flex-center { display: flex; justify-content: center; align-items: center; }
+        #start-screen { position: fixed; width: 100vw; height: 100vh; background-color: #8FBC8F; flex-direction: column; z-index: 100; }
+        #start-screen h1 { font-size: 3rem; color: #fff; margin-bottom: 2rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        #copyright { position: absolute; bottom: 10px; left: 10px; color: #fff; font-size: 0.8rem; }
+        #control-buttons { display: flex; gap: 2rem; flex-wrap: wrap; justify-content: center; }
+        #touch-crafting, #refresh-button, #inventory-btn { position: fixed; padding: 1rem; font-size: 1.5rem; background-color: rgba(255, 140, 0, 0.9); color: #fff; border: none; border-radius: 50%; width: 60px; height: 60px; z-index: 100; box-shadow: 0 4px 8px rgba(0,0,0,0.3); display: none; justify-content: center; align-items: center; }
+        #touch-crafting { bottom: 20px; left: 20px; }
+        #refresh-button { bottom: 20px; right: 100px; }
+        #inventory-btn { bottom: 20px; right: 20px; }
+        .btn { padding: 0.5rem 0.5rem; font-size: 1.5rem; background-color: #FF8C00; color: #fff; border: none; border-radius: 1rem; cursor: pointer; min-width: 200px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); transition: transform 0.1s; }
+        .btn:active { transform: scale(0.95); }
+        .game-element { position: absolute; z-index: 1; }
+        .player { width: 50px; height: 50px; background-color: #FF8C00; z-index: 10; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.5); transition: transform 0.3s ease-out, left 0.2s ease-out, top 0.2s ease-out; }
+        .player.moving { animation: playerMove 0.8s infinite alternate ease-in-out; transform-origin: center; }
+        .animal { width: 40px; height: 40px; background: pink; border-radius: 50%; position: absolute; z-index: 8; box-shadow: 0 0 10px #ffb6c1; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; color: #fff; font-weight: bold; }
+        @keyframes playerMove { 0% { transform: scale(1) translateY(0); } 50% { transform: scale(0.95) translateY(-3px); } 100% { transform: scale(1) translateY(0); } }
+        .tree-leaf { width: 50px; height: 50px; background-color: #008000; border-radius: 50%; z-index: 2; }
+        .tree-trunk { width: 20px; height: 70px; background-color: #A0522D; bottom: 0; }
+        .stone { width: 50px; height: 50px; background-color: #808080; border-radius: 50%; z-index: 3; }
+        .structure { width: 50px; height: 50px; background-color: #A0522D; z-index: 4; }
+        .crafting-table { width: 60px; height: 60px; background-color: #654321; z-index: 4; border-radius: 5px; color: white; font-size: 10px; }
+        .portal { width: 80px; height: 80px; background: linear-gradient(45deg, #4B0082, #9400D3, #4B0082); border-radius: 50%; z-index: 5; animation: portalPulse 2s infinite; color: white; font-weight: bold; text-shadow: 0 0 5px black; }
+        @keyframes portalPulse { 0% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); opacity: 0.8; } }
+        .breaking { animation: breakAnimation 0.5s infinite alternate; }
+        @keyframes breakAnimation { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0.7; transform: scale(0.95); } }
+        .broken { animation: breakFinish 0.5s forwards; }
+        @keyframes breakFinish { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0); } }
+        .progress-bar { position: absolute; bottom: -10px; left: 0; width: 100%; height: 5px; background-color: rgba(0,0,0,0.2); z-index: 11; }
+        .progress-fill { height: 100%; background-color: #FF8C00; width: 0%; transition: width 0.1s linear; }
+        .popup { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: rgba(0, 0, 0, 0.9); color: #fff; padding: 20px; border-radius: 15px; max-width: 90%; z-index: 101; box-shadow: 0 0 20px rgba(0,0,0,0.7); display: none; }
+        .popup h2 { text-align: center; margin-bottom: 15px; color: #FF8C00; }
+        #touch-controls { position: fixed; bottom: 20px; left: 0; right: 0; display: none; justify-content: space-between; align-items: center; padding: 0 20px; z-index: 102; gap: 10px; }
+        #touch-joystick-area { position: fixed; bottom: 90px; left: 20px; width: 120px; height: 120px; touch-action: none; user-select: none; z-index: 109; }
+        #touch-joystick { position: absolute; width: 70px; height: 70px; background-color: rgba(255, 140, 0, 0.3); border-radius: 50%; left: 25px; top: 25px; }
+        #touch-joystick-thumb { position: absolute; width: 35px; height: 35px; background-color: rgba(255, 140, 0, 0.9); border-radius: 50%; left: 42.5px; top: 42.5px; transition: transform 0.1s; }
+        #inventory { position: fixed; bottom: 0; left: 0; right: 0; background-color: rgba(0, 0, 0, 0.7); color: white; padding: 12px; font-size: 1.1rem; z-index: 99; display: flex; justify-content: space-around; flex-wrap: wrap; }
+        #inventory span { margin: 0 10px; color: #FF8C00; font-weight: bold; }
+        #inventory-panel { position: fixed; bottom: 0; left: 0; right: 0; background-color: rgba(0, 0, 0, 0.9); color: white; padding: 20px; z-index: 98; display: none; flex-direction: column; max-height: 60vh; overflow-y: auto; }
+        #inventory-panel h2 { text-align: center; margin-bottom: 15px; color: #FF8C00; }
+
+        .inventory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
+        .inventory-item { display: flex; flex-direction: column; align-items: center; padding: 10px; background-color: rgba(255, 255, 255, 0.1); border-radius: 8px; }
+        .inventory-icon { width: 40px; height: 40px; border-radius: 50%; margin-bottom: 5px; display: flex; justify-content: center; align-items: center; font-size: 12px; }
+        .recipe { display: flex; align-items: center; margin-bottom: 15px; padding: 10px; background-color: rgba(255, 255, 255, 0.1); border-radius: 8px; }
+        .recipe-items { flex: 1; display: flex; flex-wrap: wrap; gap: 5px; }
+        .recipe-item { display: flex; flex-direction: column; align-items: center; font-size: 12px; }
+        .recipe-icon { width: 30px; height: 30px; border-radius: 50%; margin-bottom: 3px; font-size: 10px; }
+        .recipe-requirement { font-size: 10px; color: #FF8C00; margin-top: 5px; }
+        .disabled { opacity: 0.5; pointer-events: auto; }
+        .hole { z-index: 6; border: 2px solid rgba(0,0,0,0.3); border-radius: 6px; }
+        .ladder { z-index: 7; box-shadow: inset 0 0 2px rgba(0,0,0,0.2); }
+        .ug-tile { z-index: 90; }
+    </style>
+</head>
+<body>
+    <div id="start-screen" class="flex-center">
+        <h1>绿色森林</h1>
+        <div id="control-buttons">
+            <button id="keyboard-control" class="btn">键盘控制</button>
+            <button id="button-control" class="btn">按钮控制</button>
+            <!-- 开发测试按钮（平常隐藏） -->
+            <button id="run-tests-btn" class="btn" style="display:none;margin-left:10px;">运行自动化测试</button>
+        </div>
+        <div id="copyright">COPYRIGHT @WORLDHANS</div>
+    </div>
+    <div id="game-container">
+        <div id="player" class="player game-element"></div>
+    </div>
+    <div id="player-health-bar" style="display:none;position:fixed;top:10px;left:50%;transform:translateX(-50%);width:300px;height:24px;background:rgba(0,0,0,0.3);border-radius:12px;z-index:200;">
+        <div id="player-health-fill" style="height:100%;width:100%;background:linear-gradient(90deg,#ff4444,#ffbb44);border-radius:12px;transition:width 0.2s;"></div>
+        <span id="player-health-text" style="position:absolute;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:1.1rem;pointer-events:none;">20 / 20</span>
+    </div>
+    <div id="inventory-panel">
+        <h2>背包</h2>
+        <div id="inventory-fuel" style="color:#FF8C00;text-align:center;margin-bottom:10px;font-size:1.1rem;">燃料值：<span id="inventory-fuel-value">0</span></div>
+        <div class="inventory-grid" id="inventory-grid"></div>
+    </div>
+    <div id="touch-controls">
+        <div id="touch-joystick-area">
+            <div id="touch-joystick"></div>
+            <div id="touch-joystick-thumb"></div>
+        </div>
+    </div>
+    <button id="inventory-btn" class="touch-btn">📦</button>
+    <button id="touch-crafting" class="touch-btn">🔨</button>
+    <button id="refresh-button" class="touch-btn">🔄</button>
+    <button id="dig-hole" class="btn" style="bottom: 140px; left: 20px; position: fixed; z-index: 101; display: none;">挖洞</button>
+    <button id="place-ladder" class="btn" style="bottom: 140px; left: 120px; position: fixed; z-index: 101; display: none;">放置梯子</button>
+    <button id="enter-underground" class="btn" style="bottom: 140px; left: 220px; position: fixed; z-index: 101; display: none;">进入矿洞</button>
+    <button id="exit-underground" class="btn" style="bottom: 140px; left: 320px; position: fixed; z-index: 101; display: none;">回到地面</button>
+    <button id="reclaim-table-btn" class="btn" style="bottom: 100px; right: 20px; position: fixed; z-index: 101; display: none;">收回工作台</button>
+    <div id="crafting-ui" class="popup">
+        <h2>合成界面 <span id="crafting-page">1/4</span></h2>
+        <div id="recipe-pages">
+            <div class="recipe-page" style="display: block;">
+                <div class="recipe">
+                    <div class="recipe-items">
+                        <div class="recipe-item"><div class="recipe-icon" style="background-color: #808080;">石子</div><span>×1</span></div>
+                        <div class="recipe-item"><div class="recipe-icon" style="background-color: #A0522D;">木棍</div><span>×1</span></div>
+                        <div class="recipe-item"><div class="recipe-icon" style="background-color: #8FBC8F;">破碎藤蔓</div><span>×1</span></div>
+                    </div>
+                    <div class="recipe-item">
+                        <div class="recipe-icon" style="background-color: #D2691E;">碎石斧</div>
+                        <button id="craft-axe" class="btn">制作</button>
+                        <div class="recipe-requirement">无需工作台</div>
+                    </div>
+                </div>
+                <div class="recipe">
+                    <div class="recipe-items">
+                        <div class="recipe-item"><div class="recipe-icon" style="background-color: #A0522D;">木材</div><span>×1</span></div>
+                    </div>
+                    <div class="recipe-item">
+                        <div class="recipe-icon" style="background-color: #654321;">合成台</div>
+                        <button id="craft-table" class="btn">制作</button>
+                        <div class="recipe-requirement">无需工作台</div>
+                    </div>
+                </div>
+                <div class="recipe">
+                    <div class="recipe-items">
+                        <div class="recipe-item"><div class="recipe-icon" style="background-color: #A0522D;">木材</div><span>×1</span></div>
+                        <div class="recipe-item"><div class="recipe-icon" style="background-color: #2E8B57;">完整藤蔓</div><span>×1</span></div>
+                        <div class="recipe-item"><div class="recipe-icon" style="background-color: #8B5A2B;">树枝</div><span>×1</span></div>
+                    </div>
+                    <div class="recipe-item">
+                        <div class="recipe-icon" style="background-color: #D2691E;">木镐</div>
+                        <button id="craft-pickaxe" class="btn">制作</button>
+                        <div class="recipe-requirement">需要工作台（木镐耐久10）</div>
+                    </div>
+                </div>
+                <div class="recipe">
+                    <div class="recipe-items">
+                        <div class="recipe-item"><div class="recipe-icon" style="background-color: #9E9E9E;">石块</div><span>×1</span></div>
+                        <div class="recipe-item"><div class="recipe-icon" style="background-color: #2E8B57;">完整藤蔓</div><span>×1</span></div>
+                        <div class="recipe-item"><div class="recipe-icon" style="background-color: #8B5A2B;">树枝</div><span>×1</span></div>
+                    </div>
+                    <div class="recipe-item">
+                        <div class="recipe-icon" style="background-color: #999999;">石镐</div>
+                        <button id="craft-stone-pickaxe" class="btn">制作</button>
+                        <div class="recipe-requirement">需要合成台（耐久30，挖掘速度2.5倍）</div>
+                    </div>
+                </div>
+            </div>
+            <div class="recipe-page" style="display: none;">
+                <div class="recipe">
+                    <div class="recipe-items">
+                        <div class="recipe-item"><div class="recipe-icon" style="background-color: #A0522D;">木材</div><span>×1</span></div>
+                        <div class="recipe-item"><div class="recipe-icon" style="background-color: #2E8B57;">完整藤蔓</div><span>×1</span></div>
+                        <div class="recipe-item"><div class="recipe-icon" style="background-color: #8B5A2B;">树枝</div><span>×1</span></div>
+                    </div>
+                    <div class="recipe-item">
+                        <div class="recipe-icon" style="background-color: #FF8C00;">木剑</div>
+                        <button id="craft-wooden-sword" class="btn">制作</button>
+                        <div class="recipe-requirement">需要工作台</div>
+                    </div>
+                </div>
+                <div class="recipe">
+                    <div class="recipe-items">
+                        <div class="recipe-item"><div class="recipe-icon" style="background-color: #808080;">石子</div><span>×10</span></div>
+                    </div>
+                    <div class="recipe-item">
+                        <div class="recipe-icon" style="background-color: #555555;">熔炉</div>
+                        <button id="craft-furnace" class="btn">制作</button>
+                        <div class="recipe-requirement">需要合成台</div>
+                    </div>
+                </div>
+            </div>
+            <div class="recipe-page" style="display: none;">
+                <div class="recipe">
+                    <div class="recipe-items">
+                        <div class="recipe-item"><div class="recipe-icon" style="background-color: #2E8B57;">完整藤蔓</div><span>×1</span></div>
+                    </div>
+                    <div class="recipe-item">
+                        <div class="recipe-icon" style="background-color: #8FBC8F;">破碎藤蔓</div>
+                        <span>×3</span>
+                        <button id="craft-vine" class="btn">制作</button>
+                        <div class="recipe-requirement">无需工作台</div>
+                    </div>
+                </div>
+                <div class="recipe">
+                    <div class="recipe-items">
+                        <div class="recipe-item"><div class="recipe-icon" style="background-color: #8B5A2B;">树枝</div><span>×1</span></div>
+                    </div>
+                    <div class="recipe-item">
+                        <div class="recipe-icon" style="background-color: #A0522D;">木棍</div>
+                        <span>×3</span>
+                        <button id="craft-branch" class="btn">制作</button>
+                        <div class="recipe-requirement">无需工作台</div>
+                    </div>
+                </div>
+                <div class="recipe">
+                    <div class="recipe-items">
+                        <div class="recipe-item"><div class="recipe-icon" style="background-color: #A0522D;">木棍</div><span>×7</span></div>
+                    </div>
+                    <div class="recipe-item">
+                        <div class="recipe-icon" style="background-color: #D2B48C;">梯子</div>
+                        <button id="craft-ladder" class="btn">制作</button>
+                        <div class="recipe-requirement">需要合成台</div>
+                    </div>
+                </div>
+            </div>
+            <div class="recipe-page" style="display: none;">
+                <div class="recipe">
+                    <div class="recipe-items">
+                        <div class="recipe-item"><div class="recipe-icon" style="background-color: #e06666;">生肉</div><span>×1</span></div>
+                        <div class="recipe-item"><div class="recipe-icon" style="background-color: #A0522D;">燃料</div><span id="furnace-fuel-value">0</span></div>
+                    </div>
+                    <div class="recipe-item">
+                        <div class="recipe-icon" style="background-color: #b8860b;">熟肉</div>
+                        <button id="smelt-cooked-meat" class="btn">熔炼</button>
+                        <button id="smelt-hardstone" class="btn">烧制硬石块</button>
+                        <button id="add-fuel-btn" class="btn" style="margin-top:5px;">添加燃料</button>
+                        <div class="recipe-requirement">需要靠近熔炉<br>
+                            木棍20燃料，树枝60燃料，木材200燃料
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="pagination-controls">
+            <button id="prev-page" class="btn">上一页</button>
+            <button id="next-page" class="btn">下一页</button>
+        </div>
+    </div>
+    <div id="message-popup" class="popup">
+        <p id="message-content"></p>
+        <button id="close-message" class="btn">确定</button>
+    </div>
+    <!-- 新增燃料选择弹窗 -->
+    <div id="fuel-popup" class="popup">
+        <h2>添加燃料</h2>
+        <div id="fuel-options"></div>
+        <button id="close-fuel-popup" class="btn" style="margin-top:10px;">关闭</button>
+    </div>
+    <script>
+    const RESOURCES = [
+        { name: '破碎藤蔓', key: 'vine', color: '#8FBC8F' },
+        { name: '木棍', key: 'branch', color: '#A0522D' },
+        { name: '完整藤蔓', key: 'fullVine', color: '#2E8B57' },
+        { name: '石子', key: 'stone', color: '#808080' },
+        { name: '木材', key: 'wood', color: '#A0522D' },
+        { name: '碎石斧', key: 'axe', color: '#D2691E', durability: 'axeDurability', max: 10 },
+        { name: '木镐', key: 'pickaxe', color: '#654321', durability: 'pickaxeDurability', max: 10 },
+        { name: '树枝', key: 'twig', color: '#8B5A2B' },
+        { name: '木剑', key: 'woodenSword', color: '#FF8C00', durability: 'woodenSwordDurability', max: 30 },
+        { name: '合成台', key: 'craftingTable', color: '#654321' },
+        { name: '生肉', key: 'rawMeat', color: '#e06666' },
+        { name: '熔炉', key: 'furnace', color: '#555555' },
+        { name: '熟肉', key: 'cookedMeat', color: '#b8860b' },
+        { name: '石块', key: 'stoneBlock', color: '#9E9E9E' },
+        { name: '硬石矿', key: 'hardStoneOre', color: '#666666' },
+        { name: '燃矿', key: 'fuelOre', color: '#ff8800' },
+        { name: '硬石块', key: 'hardStoneBlock', color: '#555555' },
+        { name: '梯子', key: 'ladder', color: '#D2B48C' },
+        { name: '石镐', key: 'stonePickaxe', color: '#999999', durability: 'stonePickaxeDurability', max: 30 },
+        { name: '硬石镐', key: 'hardStonePickaxe', color: '#7f7f7f', durability: 'hardStonePickaxeDurability', max: 100 },
+        { name: '硬石剑', key: 'hardStoneSword', color: '#b0b0b0', durability: 'hardStoneSwordDurability', max: 150 },
+        { name: '硬石斧', key: 'hardStoneAxe', color: '#b0662e', durability: 'hardStoneAxeDurability', max: 50 }
+    ];
+    const game = {
+        resources: Object.fromEntries(RESOURCES.map(r => [r.key, 0])),
+        axeDurability: 0, pickaxeDurability: 0, woodenSwordDurability: 0, stonePickaxeDurability: 0, hardStonePickaxeDurability: 0, hardStoneSwordDurability: 0, hardStoneAxeDurability: 0,
+        player: { x: window.innerWidth / 2, y: window.innerHeight / 2 },
+        controlMode: 'keyboard', keyboardInterval: null, keyboardDirection: null,
+        isRunning: false, isMoving: false, nearCraftingTable: false, portalSpawned: false,
+        touchInterval: null, currentDirection: null, breakingElements: new Map(),
+        maxTrees: 3, maxStones: 5, currentTrees: 0, currentStones: 0, inventoryOpen: false,
+        health: 20, joystick: { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 },
+        craftingPage: 1, refreshCooldown: false, animals: [], attack: 1,
+        furnaceFuel: 0, // 全局熔炉燃料
+        holes: [], ladders: [], undergroundOpen: false, currentHole: null
+    };
+    const elements = {
+        startScreen: document.getElementById('start-screen'),
+        gameContainer: document.getElementById('game-container'),
+        player: document.getElementById('player'),
+        inventoryBtn: document.getElementById('inventory-btn'),
+        inventoryPanel: document.getElementById('inventory-panel'),
+        inventoryGrid: document.getElementById('inventory-grid'),
+        popups: {
+            crafting: document.getElementById('crafting-ui'),
+            message: document.getElementById('message-popup')
+        },
+        buttons: {
+            keyboard: document.getElementById('keyboard-control'),
+            touch: document.getElementById('button-control'),
+            craftAxe: document.getElementById('craft-axe'),
+            craftTable: document.getElementById('craft-table'),
+            craftPickaxe: document.getElementById('craft-pickaxe'),
+            touchControls: document.getElementById('touch-controls'),
+            touchCrafting: document.getElementById('touch-crafting'),
+            closeMessage: document.getElementById('close-message')
+        }
+    };
+    const craftingPagination = {
+        totalPages: 4, // 改为4页
+        nextPage() { if (game.craftingPage < this.totalPages) { game.craftingPage++; this.updatePageDisplay(); } },
+        prevPage() { if (game.craftingPage > 1) { game.craftingPage--; this.updatePageDisplay(); } },
+        updatePageDisplay() {
+            document.getElementById('crafting-page').textContent = `${game.craftingPage}/${this.totalPages}`;
+            document.querySelectorAll('.recipe-page').forEach((page, idx) => {
+                page.style.display = (idx === game.craftingPage - 1) ? 'block' : 'none';
+            });
+        }
+    };
+    // 动态配方表（按类别：global/workbench/furnace）
+    const RECIPES = [
+        { id: 'axe', title: '碎石斧', category: 'global', ingredients: [{k:'stone',q:1},{k:'branch',q:1},{k:'vine',q:1}], func: 'craftAxe', desc: '无需工作台' },
+        { id: 'branch', title: '木棍', category: 'global', ingredients: [{k:'twig',q:1}], func: 'craftBranch', desc: '无需工作台' },
+        { id: 'vine', title: '破碎藤蔓', category: 'global', ingredients: [{k:'fullVine',q:1}], func: 'craftVine', desc: '无需工作台' },
+        { id: 'table', title: '合成台', category: 'global', ingredients: [{k:'wood',q:1}], func: 'craftTable', desc: '放置合成台' },
+        { id: 'woodenSword', title: '木剑', category: 'workbench', ingredients: [{k:'fullVine',q:1},{k:'twig',q:1},{k:'wood',q:1}], func: 'craftWoodenSword', desc: '需要工作台' },
+        { id: 'pickaxe', title: '木镐', category: 'workbench', ingredients: [{k:'fullVine',q:1},{k:'twig',q:1},{k:'wood',q:1}], func: 'craftPickaxe', desc: '木镐耐久10' },
+        { id: 'stonePickaxe', title: '石镐', category: 'workbench', ingredients: [{k:'fullVine',q:1},{k:'twig',q:1},{k:'stoneBlock',q:1}], func: 'craftStonePickaxe', desc: '耐久30，挖掘速度2.5倍' },
+        { id: 'ladder', title: '梯子', category: 'workbench', ingredients: [{k:'branch',q:7}], func: 'craftLadder', desc: '需要合成台' },
+        { id: 'furnace', title: '熔炉', category: 'workbench', ingredients: [{k:'stone',q:10}], func: 'craftFurnace', desc: '需要合成台' },
+        { id: 'stonePickaxe_hard', title: '硬石镐', category: 'workbench', ingredients: [{k:'hardStoneBlock',q:3},{k:'twig',q:1},{k:'fullVine',q:1}], func: 'craftHardStonePickaxe', desc: '耐久100，需合成台' },
+        { id: 'hardStoneSword', title: '硬石剑', category: 'workbench', ingredients: [{k:'hardStoneBlock',q:2},{k:'twig',q:1},{k:'fullVine',q:1}], func: 'craftHardStoneSword', desc: '强力武器' },
+        { id: 'hardStoneAxe', title: '硬石斧', category: 'workbench', ingredients: [{k:'hardStoneBlock',q:2},{k:'branch',q:1}], func: 'craftHardStoneAxe', desc: '耐久强，砍树更快' },
+        { id: 'smeltMeat', title: '熟肉', category: 'furnace', ingredients: [{k:'rawMeat',q:1}], func: 'smeltCookedMeat', desc: '需要靠近熔炉并消耗燃料' },
+        { id: 'smeltHard', title: '烧制硬石块', category: 'furnace', ingredients: [{k:'hardStoneOre',q:1}], func: 'smeltHardStone', desc: '需要靠近熔炉并消耗燃料' }
+    ];
+    function bindBtn(id, fn) {
+        const el = document.getElementById(id);
+        el.addEventListener('touchstart', e => { e.preventDefault(); fn(); }, { passive: false });
+        el.addEventListener('click', fn);
+    }
+    const gameFunctions = {
+        init() {
+            this.createWorld();
+            this.setupEventListeners();
+            this.setupJoystick();
+            this.updateInventory();
+            this.updateHealthBar();
+            this.startAnimalMovement();
+        },
+        checkNearFurnace() {
+            const furnaces = document.querySelectorAll('.furnace');
+            let near = false;
+            furnaces.forEach(furnace => {
+                const a = furnace.getBoundingClientRect(), b = elements.player.getBoundingClientRect();
+                const d = Math.sqrt(Math.pow(a.left + a.width / 2 - (b.left + b.width / 2), 2) + Math.pow(a.top + a.height / 2 - (b.top + b.height / 2), 2));
+                if (d < 100) near = true;
+            });
+            return near;
+        },
+        smeltCookedMeat() {
+            // 判断是否靠近熔炉
+            if (
+                game.resources.rawMeat >= 1 &&
+                this.checkNearFurnace() &&
+                game.furnaceFuel >= 100
+            ) {
+                game.resources.rawMeat--;
+                game.furnaceFuel -= 100;
+                game.resources.cookedMeat = (game.resources.cookedMeat || 0) + 1;
+                gameFunctions.updateInventory();
+                updateFurnaceFuelUI();
+                gameFunctions.showMessage("熔炼成功，获得1个熟肉！");
+                if (typeof gameFunctions.updateCraftingButtons === 'function') gameFunctions.updateCraftingButtons();
+            } else if (game.resources.rawMeat < 1) {
+                gameFunctions.showMessage("没有生肉可熔炼！");
+            } else if (!this.checkNearFurnace()) {
+                gameFunctions.showMessage("需要靠近熔炉才能熔炼！");
+            } else if (game.furnaceFuel < 100) {
+                gameFunctions.showMessage("燃料不足！需要至少100燃料");
+            }
+        },
+        getAvailableFuel() {
+            // 计算背包内木棍、树枝、木材的总燃料值
+            return (game.resources.branch * 20) + (game.resources.twig * 60) + (game.resources.wood * 200);
+        },
+        updateAttack() {
+            game.attack = 1 + (game.resources.hardStoneSword > 0 ? 3 : (game.resources.woodenSword > 0 ? 1 : 0));
+        },
+        createWorld() {
+            while (game.currentTrees < game.maxTrees) { this.createTree(); game.currentTrees++; }
+            while (game.currentStones < game.maxStones) { this.createElement('stone'); game.currentStones++; }
+            for (let i = 0; i < 3; i++) this.createElement('tree-leaf');
+            for (let i = 0; i < 2; i++) this.createAnimal();
+        },
+        createAnimal() {
+            const x = Math.random() * (window.innerWidth - 40);
+            const y = Math.random() * (window.innerHeight - 40);
+            const el = document.createElement('div');
+            el.className = 'animal';
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+            el.textContent = '4';
+            elements.gameContainer.appendChild(el);
+            const animalObj = { el, x, y, hp: 4 };
+            game.animals.push(animalObj);
+            el.addEventListener('click', () => {
+                const playerRect = elements.player.getBoundingClientRect();
+                const animalRect = el.getBoundingClientRect();
+                const dx = (playerRect.left + playerRect.width / 2) - (animalRect.left + animalRect.width / 2);
+                const dy = (playerRect.top + playerRect.height / 2) - (animalRect.top + animalRect.height / 2);
+                if (Math.sqrt(dx * dx + dy * dy) > 80) return;
+                animalObj.hp -= game.attack;
+                if (animalObj.hp <= 0) {
+                    el.remove();
+                    game.animals = game.animals.filter(a => a !== animalObj);
+                    game.resources.rawMeat = (game.resources.rawMeat || 0) + 1;
+                    gameFunctions.updateInventory();
+                } else {
+                    el.textContent = animalObj.hp;
+                }
+                if (game.resources.hardStoneSword > 0) {
+                    game.hardStoneSwordDurability--;
+                    if (game.hardStoneSwordDurability <= 0) {
+                        game.resources.hardStoneSword--;
+                        if (game.resources.hardStoneSword > 0) game.hardStoneSwordDurability = 150;
+                    }
+                    gameFunctions.updateInventory();
+                } else if (game.resources.woodenSword > 0) {
+                    game.woodenSwordDurability--;
+                    if (game.woodenSwordDurability <= 0) {
+                        game.resources.woodenSword--;
+                        if (game.resources.woodenSword > 0) game.woodenSwordDurability = 30;
+                    }
+                    gameFunctions.updateInventory();
+                }
+            });
+        },
+        startAnimalMovement() {
+            setInterval(() => {
+                game.animals.forEach(animal => {
+                    const angle = Math.random() * 2 * Math.PI;
+                    const dist = 20 + Math.random() * 30;
+                    let newX = animal.x + Math.cos(angle) * dist;
+                    let newY = animal.y + Math.sin(angle) * dist;
+                    newX = Math.max(0, Math.min(window.innerWidth - 40, newX));
+                    newY = Math.max(0, Math.min(window.innerHeight - 40, newY));
+                    // 如果目标位置与阻挡物相碰则放弃此次移动（忽略自身）
+                    if (gameFunctions.isBlockedAt(newX, newY, 40, 40, animal.el)) { return; }
+                    const duration = 600, startX = animal.x, startY = animal.y, deltaX = newX - startX, deltaY = newY - startY;
+                    let startTime = null;
+                    function animateAnimalMove(ts) {
+                        if (!startTime) startTime = ts;
+                        const progress = Math.min(1, (ts - startTime) / duration);
+                        animal.x = startX + deltaX * progress;
+                        animal.y = startY + deltaY * progress;
+                        animal.el.style.left = animal.x + 'px';
+                        animal.el.style.top = animal.y + 'px';
+                        if (progress < 1) requestAnimationFrame(animateAnimalMove);
+                        else { animal.x = newX; animal.y = newY; animal.el.style.left = animal.x + 'px'; animal.el.style.top = animal.y + 'px'; }
+                    }
+                    requestAnimationFrame(animateAnimalMove);
+                });
+            }, 800);
+        },
+        createElement(className, x, y, width, height) {
+            const el = document.createElement('div');
+            el.className = `${className} game-element`;
+            const w = width || (className==='tree-trunk'?20: (className==='crafting-table'?60: (className==='stone'?50:50)));
+            const h = height || (className==='tree-trunk'?70: (className==='crafting-table'?60: (className==='stone'?50:50)));
+            el.style.width = w + 'px'; el.style.height = h + 'px';
+            if (x == null || y == null) {
+                const pos = this.findFreePosition(w, h);
+                el.style.left = pos.x + 'px'; el.style.top = pos.y + 'px';
+            } else { el.style.left = x + 'px'; el.style.top = y + 'px'; }
+            if (className === 'tree-trunk') {
+                const bar = document.createElement('div');
+                bar.className = 'progress-bar';
+                bar.innerHTML = '<div class="progress-fill"></div>';
+                el.appendChild(bar);
+            }
+            elements.gameContainer.appendChild(el);
+
+            // 为可采集对象添加长按采集（避免自动触发，需靠近并长按）
+            if (['tree-leaf','stone','tree-trunk'].includes(className)) {
+                this.attachLongPress(el, () => {
+                    if (!this.isWithinInteractRange(el, 2)) { this.showMessage('太远了！靠近后长按以采集。'); return; }
+                    if (className === 'tree-leaf') this.collectLeaf(el);
+                    else if (className === 'stone') this.collectStone(el);
+                    else if (className === 'tree-trunk') {
+                        const leaf = el.previousElementSibling;
+                        this.chopTree(el, leaf?.classList.contains('tree-leaf') ? leaf : null);
+                    }
+                });
+            }
+
+            return el;
+        },
+        createTree() {
+            const x = Math.random() * (window.innerWidth - 50);
+            const y = Math.random() * (window.innerHeight - 120);
+            this.createElement('tree-leaf', x, y, 50, 50);
+            this.createElement('tree-trunk', x + 15, y + 50, 20, 70);
+        },
+        createCraftingTable(x, y) {
+            const table = this.createElement('crafting-table', x, y, 60, 60);
+            table.textContent = '合成台';
+            return table;
+        },
+        createPortal() {
+            // 传送门逻辑已移除（改为洞/梯子进入地下世界）
+            return null;
+        },
+
+        updateInventory() {
+            for (const k in game.resources) game.resources[k] = Math.max(0, game.resources[k]);
+            this.updateAttack();
+            this.updateInventoryPanel();
+        },
+        updateInventoryPanel() {
+            elements.inventoryGrid.innerHTML = '';
+            // 更新燃料值显示
+            document.getElementById('inventory-fuel-value').textContent = game.furnaceFuel;
+            RESOURCES.forEach(item => {
+                if (game.resources[item.key] > 0) {
+                    const el = document.createElement('div');
+                    el.className = 'inventory-item';
+                    const icon = document.createElement('div');
+                    icon.className = 'inventory-icon';
+                    icon.style.backgroundColor = item.color;
+                    icon.textContent = item.name;
+                    el.appendChild(icon);
+                    el.appendChild(document.createElement('span')).textContent = `数量: ${game.resources[item.key]}`;
+                    if (item.durability && game[item.durability] > 0) {
+                        el.appendChild(document.createElement('span')).textContent = `耐久: ${game[item.durability]}/${item.max}`;
+                    }
+                    if (item.key === 'craftingTable') {
+                        el.style.cursor = 'pointer';
+                        el.onclick = () => {
+                            elements.inventoryPanel.style.display = 'none';
+                            game.inventoryOpen = false;
+                            const pos = this.findNearbyFreePosition(60,60);
+                            this.createCraftingTable(pos.x, pos.y);
+                            game.resources.craftingTable--;
+                            this.updateInventory();
+                        };
+                    }
+                    // ----------- 新增：熔炉的摆放逻辑 -----------
+                    if (item.key === 'furnace') {
+                        el.style.cursor = 'pointer';
+                        el.onclick = () => {
+                            elements.inventoryPanel.style.display = 'none';
+                            game.inventoryOpen = false;
+                            const pos = this.findNearbyFreePosition(60,60);
+                            const f = this.createElement('furnace', pos.x, pos.y, 60, 60);
+                            f.textContent = '熔炉';
+                            game.resources.furnace--;
+                            this.updateInventory();
+                        };
+                    }
+                    if (item.key === 'rawMeat') {
+                        el.style.cursor = 'pointer';
+                        el.onclick = () => {
+                            if (game.health >= 20) return;
+                            if (game.resources.rawMeat > 0) {
+                                game.resources.rawMeat--;
+                                const add = Math.min(2, 20 - game.health);
+                                game.health += add;
+                                gameFunctions.updateInventory();
+                                gameFunctions.updateHealthBar();
+                            }
+                        };
+                    }
+                    if (item.key === 'cookedMeat') {
+                        el.style.cursor = 'pointer';
+                        el.onclick = () => {
+                            if (game.health >= 20) return;
+                            if (game.resources.cookedMeat > 0) {
+                                game.resources.cookedMeat--;
+                                const add = Math.min(5, 20 - game.health); // 每次回5血
+                                game.health += add;
+                                gameFunctions.updateInventory();
+                                gameFunctions.updateHealthBar();
+                            }
+                        };
+                    }
+                    elements.inventoryGrid.appendChild(el);
+                }
+            });
+        },
+        closeAllPopups() {
+            elements.inventoryPanel.style.display = 'none'; game.inventoryOpen = false;
+            elements.popups.crafting.style.display = 'none';
+            elements.popups.message.style.display = 'none';
+            document.getElementById('fuel-popup').style.display = 'none';
+            // reset button states for button mode
+            if (game.controlMode === 'button') {
+                elements.inventoryBtn.style.display = 'block';
+                elements.buttons.touchControls.style.display = 'flex';
+                document.getElementById('touch-joystick-area').style.display = 'block';
+                document.getElementById('refresh-button').style.display = 'flex';
+            }
+        },
+        toggleInventory() {
+            // 如果已经打开，直接关闭所有弹窗（从按钮模式点击关闭）
+            if (game.inventoryOpen) { this.closeAllPopups(); return; }
+            // 否则关闭其他弹窗并打开背包
+            this.closeAllPopups();
+            game.inventoryOpen = true;
+            elements.inventoryPanel.style.display = 'flex';
+            if (game.controlMode === 'button') {
+                document.getElementById('touch-crafting').style.display = 'none';
+                document.getElementById('refresh-button').style.display = 'none';
+                document.getElementById('touch-joystick-area').style.display = 'none';
+                elements.buttons.touchControls.style.display = 'none';
+            }
+        },
+
+        showMessage(text) {
+            this.closeAllPopups();
+            document.getElementById('message-content').textContent = text;
+            elements.popups.message.style.display = 'block';
+            if (game.controlMode === 'button') {
+                document.getElementById('touch-crafting').style.display = 'none';
+                document.getElementById('refresh-button').style.display = 'none';
+                document.getElementById('touch-joystick-area').style.display = 'none';
+                elements.inventoryBtn.style.display = 'none';
+                elements.buttons.touchControls.style.display = 'none';
+            }
+        },
+        togglePopup(popup) {
+            // 保证一次只有一个界面打开
+            const willOpen = popup.style.display !== 'block';
+            this.closeAllPopups();
+            if (willOpen) popup.style.display = 'block'; else popup.style.display = 'none';
+            if (popup === elements.popups.crafting) this.updateCraftingButtons();
+            if (game.controlMode === 'button') {
+                const isOpen = popup.style.display === 'block';
+                elements.inventoryBtn.style.display = isOpen ? 'none' : 'block';
+                document.getElementById('refresh-button').style.display = isOpen ? 'none' : 'flex';
+                document.getElementById('touch-joystick-area').style.display = isOpen ? 'none' : 'block';
+                elements.buttons.touchControls.style.display = isOpen ? 'none' : 'flex';
+                const touchBtn = document.getElementById('touch-crafting');
+                // 保持触控合成按钮可见，避免遮挡弹窗（保持低于弹窗的 z-index）
+                if (touchBtn) {
+                    touchBtn.style.display = 'flex';
+                    touchBtn.style.zIndex = isOpen ? '100' : '';
+                }
+            }
+        }, 
+        updateHealthBar() {
+            document.getElementById('player-health-bar').style.display = 'none';
+            const bar = document.getElementById('player-health-fill');
+            const text = document.getElementById('player-health-text');
+            const percent = Math.max(0, Math.min(20, game.health));
+            bar.style.width = (percent / 20 * 100) + '%';
+            text.textContent = `${percent} / 20`;
+        },
+        updateCraftingButtons() {
+            const nearTable = this.checkNearCraftingTable();
+            if (elements.buttons.craftAxe) elements.buttons.craftAxe.classList.toggle('disabled', !(game.resources.stone >= 1 && game.resources.branch >= 1 && game.resources.vine >= 1));
+            if (elements.buttons.craftTable) elements.buttons.craftTable.classList.toggle('disabled', !(game.resources.wood >= 1));
+            if (elements.buttons.craftPickaxe) elements.buttons.craftPickaxe.classList.toggle('disabled', !(game.resources.fullVine >= 1 && game.resources.twig >= 1 && game.resources.wood >= 1 && nearTable));
+            const safeToggle = (id, cond) => { const el = document.getElementById(id); if (el) el.classList.toggle('disabled', !cond); };
+            safeToggle('craft-vine', game.resources.fullVine >= 1);
+            safeToggle('craft-branch', game.resources.twig >= 1);
+            safeToggle('craft-wooden-sword', (game.resources.fullVine >= 1 && game.resources.twig >= 1 && game.resources.wood >= 1 && nearTable));
+            safeToggle('craft-furnace', (game.resources.stone >= 10 && nearTable));
+            safeToggle('craft-ladder', (game.resources.branch >= 7 && nearTable));
+            safeToggle('craft-stone-pickaxe', (game.resources.fullVine >= 1 && game.resources.twig >= 1 && game.resources.stoneBlock >= 1 && nearTable));
+            safeToggle('smelt-cooked-meat', (game.resources.rawMeat >= 1 && this.checkNearFurnace() && game.furnaceFuel >= 100));
+            safeToggle('smelt-hardstone', ((game.resources.hardStoneOre || 0) >= 1 && this.checkNearFurnace() && game.furnaceFuel >= 200));
+            updateFurnaceFuelUI();
+            // 如果合成界面打开，重新渲染动态配方以保持一致
+            if (elements.popups.crafting && elements.popups.crafting.style.display === 'block') this.renderCraftingUI();
+        },
+        // 渲染上下文敏感的合成界面（每页最多3个配方）
+        renderCraftingUI() {
+            const container = document.getElementById('recipe-pages');
+            const nearTable = this.checkNearCraftingTable();
+            const nearFurnace = this.checkNearFurnace();
+            // 过滤可见配方
+            const visible = RECIPES.filter(r => {
+                if (r.category === 'global') return true;
+                if (r.category === 'workbench') return nearTable;
+                if (r.category === 'furnace') return nearFurnace;
+                return false;
+            });
+            // 分页（3个/页）
+            const perPage = 3;
+            const pages = Math.max(1, Math.ceil(visible.length / perPage));
+            craftingPagination.totalPages = pages;
+            if (!game.craftingPage || game.craftingPage < 1) game.craftingPage = 1;
+            if (game.craftingPage > pages) game.craftingPage = pages;
+            // 清空并生成页面节点
+            container.innerHTML = '';
+            for (let p = 0; p < pages; p++) {
+                const pageDiv = document.createElement('div');
+                pageDiv.className = 'recipe-page';
+                pageDiv.style.display = (p === game.craftingPage - 1) ? 'block' : 'none';
+                const slice = visible.slice(p * perPage, p * perPage + perPage);
+                slice.forEach(rec => {
+                    const row = document.createElement('div'); row.className = 'recipe';
+                    const itemsDiv = document.createElement('div'); itemsDiv.className = 'recipe-items';
+                    rec.ingredients.forEach(it => {
+                        const itemDiv = document.createElement('div'); itemDiv.className = 'recipe-item';
+                        const icon = document.createElement('div'); icon.className = 'recipe-icon';
+                        const res = RESOURCES.find(r => r.key === it.k);
+                        icon.style.backgroundColor = res ? res.color : '#888'; icon.textContent = res ? res.name : it.k;
+                        itemDiv.appendChild(icon);
+                        itemDiv.appendChild(document.createElement('span')).textContent = `×${it.q}`;
+                        itemsDiv.appendChild(itemDiv);
+                    });
+                    row.appendChild(itemsDiv);
+                    const actionDiv = document.createElement('div'); actionDiv.className = 'recipe-item';
+                    const iconOut = document.createElement('div'); iconOut.className = 'recipe-icon'; iconOut.style.background = '#FF8C00'; iconOut.textContent = rec.title;
+                    actionDiv.appendChild(iconOut);
+                    const btn = document.createElement('button'); btn.className = 'btn'; btn.id = `dyn-craft-${rec.id}`; btn.textContent = '制作';
+                    // 是否可制作检查
+                    const canCraft = rec.ingredients.every(it => (game.resources[it.k] || 0) >= it.q) && (rec.category !== 'workbench' || nearTable) && (rec.category !== 'furnace' || nearFurnace);
+                    if (!canCraft) btn.classList.add('disabled');
+                    btn.onclick = () => {
+                        if (btn.classList.contains('disabled')) { this.showMessage('无法制作：条件不满足或距离不足'); return; }
+                        if (typeof this[rec.func] === 'function') {
+                            const ok = this[rec.func]();
+                            if (ok === false) return; // 制作函数明确失败，不更新界面
+                        } else { this.showMessage('制作函数未实现'); return; }
+                        // 重新渲染以更新状态
+                        this.updateInventory(); this.renderCraftingUI();
+                    };
+                    // 支持触控并阻止事件冒泡（避免被全局点击处理器误关）
+                    btn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); btn.click(); }, { passive: false });
+                    actionDiv.appendChild(btn);
+                    const desc = document.createElement('div'); desc.className = 'recipe-requirement'; desc.innerHTML = rec.desc || '';
+                    actionDiv.appendChild(desc);
+                    row.appendChild(actionDiv);
+                    pageDiv.appendChild(row);
+                });
+                container.appendChild(pageDiv);
+            }
+            craftingPagination.updatePageDisplay();
+            // 更新燃料显示
+            updateFurnaceFuelUI();
+        },
+        craftAxe() {
+            if (game.resources.stone >= 1 && game.resources.branch >= 1 && game.resources.vine >= 1) {
+                game.resources.stone--; game.resources.branch--; game.resources.vine--;
+                game.resources.axe++; game.axeDurability = 10;
+                this.updateInventory(); this.showMessage("制作了一把粗制碎石斧！"); this.updateCraftingButtons();
+                if (elements.popups && elements.popups.crafting) { elements.popups.crafting.style.display = 'block'; this.renderCraftingUI(); }
+                return true;
+            } else { this.showMessage("材料不足！需要1个石子、1个木棍和1个破碎藤蔓"); return false; }
+        },
+        craftTable() {
+            if (game.resources.wood >= 1) {
+                game.resources.wood--;
+                const pos = this.findNearbyFreePosition(60, 60);
+                this.createCraftingTable(pos.x, pos.y);
+                this.updateInventory(); this.showMessage("制作了一个合成台！");
+                this.checkNearCraftingTable(); this.updateCraftingButtons(); this.checkRefreshButtonPosition();
+                if (elements.popups && elements.popups.crafting) { elements.popups.crafting.style.display = 'block'; this.renderCraftingUI(); }
+                return true;
+            } else { this.showMessage("材料不足！需要1个木材"); return false; }
+        },
+        craftPickaxe() {
+            if (game.resources.fullVine >= 1 && game.resources.twig >= 1 && game.resources.wood >= 1) {
+                if (game.nearCraftingTable) {
+                    game.resources.fullVine--; game.resources.twig--; game.resources.wood--;
+                    game.resources.pickaxe++; game.pickaxeDurability = 10; // 木镐耐久改为10
+                    this.updateInventory(); this.showMessage("制作了一把木镐（耐久10）！"); this.updateCraftingButtons();
+                    if (elements.popups && elements.popups.crafting) { elements.popups.crafting.style.display = 'block'; this.renderCraftingUI(); }
+                    return true;
+                } else { this.showMessage("需要靠近合成台才能制作木镐！"); return false; }
+            } else { this.showMessage("材料不足！需要1个完整藤蔓、1个树枝和1个木材"); return false; }
+        },
+        craftStonePickaxe() {
+            if (game.resources.fullVine >= 1 && game.resources.twig >= 1 && game.resources.stoneBlock >= 1) {
+                if (game.nearCraftingTable) {
+                    game.resources.fullVine--; game.resources.twig--; game.resources.stoneBlock--;
+                    game.resources.stonePickaxe = (game.resources.stonePickaxe || 0) + 1; game.stonePickaxeDurability = 30;
+                    this.updateInventory(); this.showMessage("制作了一把石镐（耐久30）！"); this.updateCraftingButtons();
+                    if (elements.popups && elements.popups.crafting) { elements.popups.crafting.style.display = 'block'; this.renderCraftingUI(); }
+                    return true;
+                } else { this.showMessage("需要靠近合成台才能制作石镐！"); return false; }
+            } else { this.showMessage("材料不足！需要1个完整藤蔓、1个树枝和1个石块"); return false; }
+        },
+        craftHardStonePickaxe() {
+            if ((game.resources.hardStoneBlock||0) >= 3 && (game.resources.twig||0) >= 1 && (game.resources.fullVine||0) >= 1) {
+                if (game.nearCraftingTable) {
+                    game.resources.hardStoneBlock -= 3; game.resources.twig--; game.resources.fullVine--;
+                    game.resources.hardStonePickaxe = (game.resources.hardStonePickaxe||0) + 1; game.hardStonePickaxeDurability = 100;
+                    this.updateInventory(); this.showMessage('制作了一把硬石镐（耐久100）！'); this.updateCraftingButtons();
+                    if (elements.popups && elements.popups.crafting) { elements.popups.crafting.style.display = 'block'; this.renderCraftingUI(); }
+                    return true;
+                } else { this.showMessage('需要靠近合成台才能制作硬石镐！'); return false; }
+            } else { this.showMessage('材料不足！需要3个硬石块、1个树枝和1个完整藤蔓'); return false; }
+        },
+        craftHardStoneSword() {
+            if ((game.resources.hardStoneBlock||0) >= 2 && (game.resources.twig||0) >= 1 && (game.resources.fullVine||0) >= 1) {
+                if (game.nearCraftingTable) {
+                    game.resources.hardStoneBlock -= 2; game.resources.twig--; game.resources.fullVine--;
+                    game.resources.hardStoneSword = (game.resources.hardStoneSword||0) + 1; game.hardStoneSwordDurability = 150;
+                    this.updateInventory(); this.showMessage('制作了一把硬石剑！'); this.updateCraftingButtons(); this.updateAttack();
+                    if (elements.popups && elements.popups.crafting) { elements.popups.crafting.style.display = 'block'; this.renderCraftingUI(); }
+                    return true;
+                } else { this.showMessage('需要靠近合成台才能制作硬石剑！'); return false; }
+            } else { this.showMessage('材料不足！需要2个硬石块、1个树枝和1个完整藤蔓'); return false; }
+        },
+        craftHardStoneAxe() {
+            if ((game.resources.hardStoneBlock||0) >= 2 && (game.resources.branch||0) >= 1) {
+                if (game.nearCraftingTable) {
+                    game.resources.hardStoneBlock -= 2; game.resources.branch--;
+                    game.resources.hardStoneAxe = (game.resources.hardStoneAxe||0) + 1; game.hardStoneAxeDurability = 50;
+                    this.updateInventory(); this.showMessage('制作了一把硬石斧！'); this.updateCraftingButtons();
+                    if (elements.popups && elements.popups.crafting) { elements.popups.crafting.style.display = 'block'; this.renderCraftingUI(); }
+                    return true;
+                } else { this.showMessage('需要靠近合成台才能制作硬石斧！'); return false; }
+            } else { this.showMessage('材料不足！需要2个硬石块和1个木棍'); return false; }
+        },
+        craftFurnace() {
+            if (game.resources.stone >= 10 && this.checkNearCraftingTable()) {
+                game.resources.stone -= 10;
+                game.resources.furnace = (game.resources.furnace || 0) + 1;
+                this.updateInventory(); this.showMessage('制作了一个熔炉！'); this.updateCraftingButtons();
+                if (elements.popups && elements.popups.crafting) { elements.popups.crafting.style.display = 'block'; this.renderCraftingUI(); }
+                return true;
+            } else if (game.resources.stone < 10) {
+                this.showMessage('材料不足！需要10个石子'); return false;
+            } else { this.showMessage('需要靠近合成台才能制作熔炉！'); return false; }
+        },
+        craftLadder() {
+            if (game.resources.branch >= 7) {
+                if (game.nearCraftingTable) {
+                    game.resources.branch -= 7;
+                    game.resources.ladder = (game.resources.ladder || 0) + 1;
+                    this.updateInventory(); this.showMessage("制作了一个梯子！"); this.updateCraftingButtons();
+                    if (elements.popups && elements.popups.crafting) { elements.popups.crafting.style.display = 'block'; this.renderCraftingUI(); }
+                    return true;
+                } else { this.showMessage("需要靠近合成台才能制作梯子！"); return false; }
+            } else { this.showMessage("材料不足！需要7个木棍"); return false; }
+        },
+        craftWoodenSword() {
+            if (game.resources.fullVine >= 1 && game.resources.twig >= 1 && game.resources.wood >= 1) {
+                if (game.nearCraftingTable) {
+                    game.resources.fullVine--; game.resources.twig--; game.resources.wood--;
+                    game.resources.woodenSword++; game.woodenSwordDurability = 30;
+                    this.updateInventory(); this.showMessage("制作了一把木剑！"); this.updateCraftingButtons();this.updateAttack();
+                    if (elements.popups && elements.popups.crafting) { elements.popups.crafting.style.display = 'block'; this.renderCraftingUI(); }
+                    return true;
+                } else { this.showMessage("需要靠近合成台才能制作木剑！"); return false; }
+            } else { this.showMessage("材料不足！需要1个完整藤蔓、1个树枝和1个木材"); return false; }
+        },
+        craftBranch() {
+            if (game.resources.twig < 1) { this.showMessage("没有树枝可分解！"); return false; }
+            game.resources.twig--; game.resources.branch += 3;
+            this.updateInventory(); this.showMessage("将1个树枝分解为3个木棍！"); this.updateCraftingButtons();
+            if (elements.popups && elements.popups.crafting) { elements.popups.crafting.style.display = 'block'; this.renderCraftingUI(); }
+            return true;
+        },
+        craftVine() {
+            if (game.resources.fullVine < 1) { this.showMessage("没有完整藤蔓可分解！"); return false; }
+            game.resources.fullVine--; game.resources.vine += 3;
+            this.updateInventory(); this.showMessage("将1个完整藤蔓分解为3个破碎藤蔓！"); this.updateCraftingButtons();
+            if (elements.popups && elements.popups.crafting) { elements.popups.crafting.style.display = 'block'; this.renderCraftingUI(); }
+            return true;
+        },
+        getCollisionRect(el) {
+            const a = el.getBoundingClientRect();
+            const isCircle = (el.classList && el.classList.contains('animal')) || (getComputedStyle(el).borderRadius && getComputedStyle(el).borderRadius.indexOf('50%') !== -1);
+            const cx = a.left + a.width / 2, cy = a.top + a.height / 2;
+            const scale = Math.sqrt(0.75);
+            if (isCircle) {
+                const side = Math.min(a.width, a.height) / Math.SQRT2;
+                const w = side * scale, h = side * scale;
+                return { left: cx - w/2, top: cy - h/2, right: cx + w/2, bottom: cy + h/2 };
+            } else {
+                const w = a.width * scale, h = a.height * scale;
+                return { left: cx - w/2, top: cy - h/2, right: cx + w/2, bottom: cy + h/2 };
+            }
+        },
+        rectsOverlap(r1, r2) {
+            return !(r1.right < r2.left || r1.left > r2.right || r1.bottom < r2.top || r1.top > r2.bottom);
+        },
+        isBlockedAt(x, y, w = 50, h = 50, ignoreEl = null) {
+            const rectA = { left: x, top: y, right: x + w, bottom: y + h };
+            // 注意：洞（.hole）不应阻挡行走，因此从阻挡列表中移除
+            // 注意：地下格子不应阻挡玩家移动（地下为独立视图），因此不包括 '.ug-tile'
+            const blocks = document.querySelectorAll('.tree-trunk, .tree-leaf, .stone, .crafting-table, .furnace, .animal, .ladder');
+            for (const el of blocks) {
+                if (ignoreEl && el === ignoreEl) continue;
+                const rectB = this.getCollisionRect(el);
+                if (this.rectsOverlap(rectA, rectB)) return true;
+            }
+            return false;
+        },
+        findFreePosition(width, height, attempts = 40) {
+            for (let i=0;i<attempts;i++) {
+                const x = Math.random() * (window.innerWidth - width);
+                const y = Math.random() * (window.innerHeight - height);
+                if (!this.isBlockedAt(x, y, width, height)) return { x, y };
+            }
+            return { x: Math.random() * (window.innerWidth - width), y: Math.random() * (window.innerHeight - height) };
+        },
+        // 在玩家周围查找一个空闲位置（优先附近偏移，找不到则回退到随机查找）
+        findNearbyFreePosition(width, height) {
+            const rect = elements.player.getBoundingClientRect();
+            const cx = rect.left + rect.width/2 - width/2;
+            const cy = rect.top + rect.height/2 - height/2;
+            const offsets = [
+                {x:-70,y:0},{x:70,y:0},{x:0,y:-70},{x:0,y:70},
+                {x:-70,y:-70},{x:70,y:70},{x:-120,y:0},{x:120,y:0},{x:0,y:-120},{x:0,y:120}
+            ];
+            for (const off of offsets) {
+                const x = cx + off.x, y = cy + off.y;
+                if (x < 0 || y < 0 || x + width > window.innerWidth || y + height > window.innerHeight) continue;
+                if (!this.isBlockedAt(x, y, width, height)) return { x, y };
+            }
+            // fallback to general free search
+            return this.findFreePosition(width, height);
+        },
+
+
+        isWithinInteractRange(el, multiplier = 2) {
+            const a = el.getBoundingClientRect();
+            const b = elements.player.getBoundingClientRect();
+            const dx = (a.left + a.width/2) - (b.left + b.width/2);
+            const dy = (a.top + a.height/2) - (b.top + b.height/2);
+            const dist = Math.hypot(dx, dy);
+            const elRadius = Math.max(a.width, a.height) / 2;
+            const playerRadius = Math.max(b.width, b.height) / 2;
+            return dist <= elRadius * multiplier + playerRadius;
+        },
+        attachLongPress(el, callback, holdMs = 400) {
+            let timer = null;
+            const start = (e) => { e.preventDefault && e.preventDefault(); timer = setTimeout(() => { timer = null; callback(); }, holdMs); };
+            const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
+            el.addEventListener('mousedown', start);
+            el.addEventListener('touchstart', start, { passive: false });
+            el.addEventListener('mouseup', cancel);
+            el.addEventListener('mouseleave', cancel);
+            el.addEventListener('touchend', cancel);
+            el.addEventListener('touchcancel', cancel);
+        },
+        digHole() {
+            if (!game.resources.pickaxe || game.pickaxeDurability < 2) { this.showMessage('需要至少2点木镐耐久来挖洞！'); return; }
+            // 在玩家当前位置挖洞
+            const rect = elements.player.getBoundingClientRect();
+            const hx = rect.left + rect.width/2 - 20, hy = rect.top + rect.height/2 - 20;
+            // 避免重复在同一位置挖太多洞
+            for (const h of game.holes) {
+                const dx = h.x - hx, dy = h.y - hy; if (Math.hypot(dx, dy) < 30) { this.showMessage('这里已经有洞了'); return; }
+            }
+            game.pickaxeDurability -= 2; if (game.pickaxeDurability <= 0) { game.resources.pickaxe--; if (game.resources.pickaxe > 0) game.pickaxeDurability = 10; }
+            const hole = { x: hx, y: hy, hasLadder: false, underground: null, id: Date.now() };
+            game.holes.push(hole);
+            const holeEl = document.createElement('div'); holeEl.className = 'hole game-element'; holeEl.style.left = hx + 'px'; holeEl.style.top = hy + 'px'; holeEl.style.width = '40px'; holeEl.style.height = '40px'; holeEl.style.background = '#000'; holeEl.style.borderRadius = '6px'; holeEl.dataset.holeId = hole.id;
+            elements.gameContainer.appendChild(holeEl);
+            this.updateInventory(); this.showMessage('挖好了一个洞！');
+        },
+        placeLadder() {
+            // 找最近的洞
+            let nearHole = null;
+            const pRect = elements.player.getBoundingClientRect();
+            const px = pRect.left + pRect.width/2, py = pRect.top + pRect.height/2;
+            for (const h of game.holes) {
+                const d = Math.hypot(h.x - px, h.y - py); if (d < 80) { nearHole = h; break; }
+            }
+            if (!nearHole) { this.showMessage('附近没有可放置梯子的洞！'); return; }
+            if (!game.resources.ladder) { this.showMessage('没有梯子可放置！'); return; }
+            if (nearHole.hasLadder) { this.showMessage('该洞已有梯子！'); return; }
+            nearHole.hasLadder = true; game.resources.ladder--; this.updateInventory();
+            const ladderEl = document.createElement('div'); ladderEl.className = 'ladder game-element'; ladderEl.style.left = (nearHole.x + 10) + 'px'; ladderEl.style.top = nearHole.y + 'px'; ladderEl.style.width = '20px'; ladderEl.style.height = '40px'; ladderEl.style.background = '#D2B48C'; ladderEl.dataset.holeId = nearHole.id; elements.gameContainer.appendChild(ladderEl);
+            this.showMessage('放置了梯子，现在可以进入矿洞');
+        },
+        enterUnderground(hole) {
+            if (!hole) {
+                // 如果未指定，查找附近有梯子的洞
+                const pRect = elements.player.getBoundingClientRect(); const px = pRect.left + pRect.width/2, py = pRect.top + pRect.height/2;
+                for (const h of game.holes) { if (h.hasLadder && Math.hypot(h.x - px, h.y - py) < 80) { hole = h; break; } }
+            }
+            if (!hole || !hole.hasLadder) { this.showMessage('没有可进入的矿洞'); return; }
+            // 在进入地下前保存并清理地表元素
+            if (!hole.surfaceSnapshot) this.saveSurfaceSnapshot(hole);
+            // 生成地下世界（如果不存在）
+            if (!hole.underground) hole.underground = this.generateUndergroundForHole(hole);
+            // 隐藏地表并显示地下容器，移动 player 到地下容器内部
+            elements.gameContainer.style.display = 'none';
+            const ug = hole.underground.container; ug.style.display = 'block'; ug.style.zIndex = 90;
+            // 保证 player 在地下容器之上但低于触控按钮（按钮 z-index >=100）
+            ug.appendChild(elements.player);
+            elements.player.style.zIndex = '95';
+            // 将 player 定位在入口附近（中心）
+            const centerX = Math.floor(ug.clientWidth/2 - elements.player.clientWidth/2);
+            const centerY = Math.floor(ug.clientHeight/2 - elements.player.clientHeight/2);
+            elements.player.style.left = centerX + 'px'; elements.player.style.top = centerY + 'px';
+            game.undergroundOpen = true; game.currentHole = hole;
+            document.getElementById('exit-underground').style.display = 'block';
+        },
+        exitUnderground() {
+            if (!game.undergroundOpen || !game.currentHole) return;
+            const hole = game.currentHole; const ug = hole.underground.container; ug.style.display = 'none';
+            // 将 player 移回地表并恢复之前的地表元素
+            elements.gameContainer.appendChild(elements.player);
+            // 恢复 player 的图层顺序
+            elements.player.style.zIndex = '10';
+            elements.player.style.left = (hole.x + 10) + 'px'; elements.player.style.top = (hole.y + 10) + 'px';
+            elements.gameContainer.style.display = 'block';
+            // 恢复地表快照
+            this.restoreSurfaceSnapshot(hole);
+            game.undergroundOpen = false; game.currentHole = null;
+            document.getElementById('exit-underground').style.display = 'none';
+        },
+        saveSurfaceSnapshot(hole) {
+            // 保存当前地表元素（除 player 与 underground 容器）
+            const snapshot = [];
+            document.querySelectorAll('#game-container .game-element').forEach(el => {
+                if (el === elements.player) return;
+                snapshot.push({ className: el.className.replace(' game-element',''), left: el.style.left, top: el.style.top, width: el.style.width, height: el.style.height, innerHTML: el.innerHTML });
+                el.remove();
+            });
+            hole.surfaceSnapshot = snapshot;
+        },
+        restoreSurfaceSnapshot(hole) {
+            if (!hole || !hole.surfaceSnapshot) return;
+            hole.surfaceSnapshot.forEach(s => {
+                const el = this.createElement(s.className, parseFloat(s.left), parseFloat(s.top), parseInt(s.width)||undefined, parseInt(s.height)||undefined);
+                el.innerHTML = s.innerHTML;
+            });
+        },
+        generateUndergroundForHole(hole) {
+            // 生成覆盖全屏的地下网格，tile 较大以保证玩家能通过 1 格缝隙
+            const tile = 80; const cols = Math.ceil(window.innerWidth / tile); const rows = Math.ceil(window.innerHeight / tile);
+            const container = document.createElement('div'); container.className = 'underground-container'; container.style.position = 'fixed'; container.style.left = '0'; container.style.top = '0'; container.style.width = (cols*tile) + 'px'; container.style.height = (rows*tile) + 'px'; container.style.background = '#222'; container.style.display = 'none'; container.style.zIndex = 90; document.body.appendChild(container);
+            hole.underground = { tiles: [], container, cols, rows, tile };
+            for (let r=0;r<rows;r++){
+                for (let c=0;c<cols;c++){
+                    const cx = (c*tile); const cy = (r*tile);
+                    const tileEl = document.createElement('div'); tileEl.className = 'ug-tile'; tileEl.style.position = 'absolute'; tileEl.style.left = cx+'px'; tileEl.style.top = cy+'px'; tileEl.style.width = tile+'px'; tileEl.style.height = tile+'px'; tileEl.style.boxSizing = 'border-box';
+                    // 计算中心格为入口（近似）
+                    const centerR = Math.floor(rows/2), centerC = Math.floor(cols/2);
+                    if (r===centerR && c===centerC) { tileEl.style.background='transparent'; tileEl.dataset.type='empty'; }
+                    else {
+                        const rand = Math.random(); if (rand < 0.04) { tileEl.dataset.type='fuelOre'; tileEl.style.background='#ff8f2b'; }
+                        else if (rand < 0.12) { tileEl.dataset.type='hardStoneOre'; tileEl.style.background='#6b6b6b'; }
+                        else { tileEl.dataset.type='stoneBlock'; tileEl.style.background='#9E9E9E'; }
+                        tileEl.style.border='1px solid rgba(0,0,0,0.15)';
+                    }
+                    tileEl.onclick = (e) => {
+                        e.stopPropagation();
+                        if (tileEl.dataset.type && tileEl.dataset.type!=='empty') this.startMiningUnderground(tileEl);
+                    };
+                    container.appendChild(tileEl);
+                    hole.underground.tiles.push(tileEl);
+                }
+            }
+            return hole.underground;
+        },
+        startMiningUnderground(tileEl) {
+            const type = tileEl.dataset.type; if (!type) return;
+            // 检查工具：矿物只能用石镐或硬石镐；石块允许木镐
+            let tool = null, durField = null;
+            if (type === 'stoneBlock') {
+                if (game.resources.hardStonePickaxe > 0 && game.hardStonePickaxeDurability > 0) { tool='hardStonePickaxe'; durField='hardStonePickaxeDurability'; }
+                else if (game.resources.stonePickaxe > 0 && game.stonePickaxeDurability > 0) { tool='stonePickaxe'; durField='stonePickaxeDurability'; }
+                else if (game.resources.pickaxe > 0 && game.pickaxeDurability > 0) { tool='pickaxe'; durField='pickaxeDurability'; }
+                else { this.showMessage('需要镐来挖掘石块！'); return; }
+            } else {
+                if (game.resources.hardStonePickaxe > 0 && game.hardStonePickaxeDurability > 0) { tool='hardStonePickaxe'; durField='hardStonePickaxeDurability'; }
+                else if (game.resources.stonePickaxe > 0 && game.stonePickaxeDurability > 0) { tool='stonePickaxe'; durField='stonePickaxeDurability'; }
+                else { this.showMessage('需要石镐来挖掘地底矿石！'); return; }
+            }
+            // 挖掘时长（ms）
+            const base = (type==='stoneBlock')?5000:10000; const speedFactor = (tool==='hardStonePickaxe')?10:((tool==='stonePickaxe')?2.5:1); const time = Math.max(200, base / speedFactor);
+            if (game.breakingElements.has(tileEl)) return;
+            let progress = 0; const progressDiv = document.createElement('div'); progressDiv.style.position='absolute'; progressDiv.style.left='0'; progressDiv.style.bottom='0'; progressDiv.style.height='6px'; progressDiv.style.background='#000'; progressDiv.style.width='0%'; tileEl.appendChild(progressDiv);
+            game.breakingElements.set(tileEl, { interval: setInterval(()=>{ progress += 100; progressDiv.style.width = Math.min(100, (progress/time)*100)+'%'; if (progress >= time) { clearInterval(game.breakingElements.get(tileEl).interval); game.breakingElements.delete(tileEl); tileEl.remove();
+                            // 掉落
+                            if (type==='stoneBlock') game.resources.stoneBlock = (game.resources.stoneBlock||0)+1;
+                            else if (type==='hardStoneOre') game.resources.hardStoneOre = (game.resources.hardStoneOre||0)+1;
+                            else if (type==='fuelOre') game.resources.fuelOre = (game.resources.fuelOre||0)+1;
+                            // 消耗耐久
+                            if (durField) { game[durField]--; if (game[durField] <= 0) { game.resources[tool]--; if (game.resources[tool] > 0) game[durField] = (tool==='hardStonePickaxe')?100:30; } }
+                            this.updateInventory(); } }, 100) });
+        },
+        smeltHardStone() {
+            if (!this.checkNearFurnace()) { this.showMessage('需要靠近熔炉才能烧制硬石块！'); return; }
+            if ((game.resources.hardStoneOre||0) < 1) { this.showMessage('没有硬石矿可烧制！'); return; }
+            if (game.furnaceFuel < 200) { this.showMessage('燃料不足，至少需要200燃料！'); return; }
+            game.resources.hardStoneOre--; game.resources.hardStoneBlock = (game.resources.hardStoneBlock||0)+1; game.furnaceFuel -= 200; updateFurnaceFuelUI(); this.updateInventory(); this.showMessage('烧制成功，获得1个硬石块！');
+        },
+        movePlayer(direction) {
+            const step = 15, size = 50;
+            if (!game.isMoving) { game.isMoving = true; elements.player.classList.add('moving'); }
+            let newX = game.player.x, newY = game.player.y;
+            if (direction === 'up') newY = Math.max(0, game.player.y - step);
+            if (direction === 'down') newY = Math.min(window.innerHeight - size, game.player.y + step);
+            if (direction === 'left') newX = Math.max(0, game.player.x - step);
+            if (direction === 'right') newX = Math.min(window.innerWidth - size, game.player.x + step);
+            // 碰撞检测
+            if (this.isBlockedAt(newX, newY, size, size)) { this.stopMoving(); return; }
+            game.player.x = newX; game.player.y = newY;
+            elements.player.style.left = game.player.x + 'px';
+            elements.player.style.top = game.player.y + 'px';
+            this.checkNearCraftingTable(); this.checkBreakingDistance();
+            this.updateReclaimTableBtn();
+            this.updateReclaimFurnaceBtn();
+            this.updateHoleButtons();
+        },
+
+        stopContinuousMove() {
+            if (game.touchInterval) clearInterval(game.touchInterval);
+            game.touchInterval = null; game.currentDirection = null; this.stopMoving();
+        },
+        startContinuousMove(direction) {
+            if (game.currentDirection === direction) return;
+            this.stopContinuousMove(); game.currentDirection = direction;
+            this.movePlayer(direction);
+            game.touchInterval = setInterval(() => this.movePlayer(direction), 50);
+        },
+        stopMoving() {
+            game.isMoving = false; elements.player.classList.remove('moving');
+        },
+        checkCollision(element) {
+            const a = element.getBoundingClientRect(), b = elements.player.getBoundingClientRect();
+            return !(b.right < a.left || b.left > a.right || b.bottom < a.top || b.top > a.bottom);
+        },
+        checkBreakingDistance() {
+            game.breakingElements.forEach((_, el) => {
+                const a = el.getBoundingClientRect(), b = elements.player.getBoundingClientRect();
+                const d = Math.sqrt(Math.pow(a.left + a.width/2 - (b.left + b.width/2), 2) + Math.pow(a.top + a.height/2 - (b.top + b.height/2), 2));
+                if (d > 80) this.resetBreakingProgress(el);
+            });
+        },
+        checkNearCraftingTable() {
+            const tables = document.querySelectorAll('.crafting-table');
+            let near = false;
+            tables.forEach(table => {
+                const a = table.getBoundingClientRect(), b = elements.player.getBoundingClientRect();
+                const d = Math.sqrt(Math.pow(a.left + a.width/2 - (b.left + b.width/2), 2) + Math.pow(a.top + a.height/2 - (b.top + b.height/2), 2));
+                if (d < 100) near = true;
+            });
+            game.nearCraftingTable = near;
+            return near;
+        },
+        startBreaking(element, resourceType, isTree = false) {
+            if (game.breakingElements.has(element)) return;
+            // 根据工具调整树木的破坏时间
+            let breakTime = isTree ? 5000 : 500;
+            let toolUsed = null;
+            if (isTree) {
+                if (game.resources.hardStoneAxe > 0 && game.hardStoneAxeDurability > 0) { toolUsed = 'hardStoneAxe'; }
+                else if (game.resources.axe > 0 && game.axeDurability > 0) { toolUsed = 'axe'; }
+                const speedFactor = (toolUsed === 'hardStoneAxe') ? 3 : (toolUsed === 'axe' ? 1 : 1);
+                breakTime = Math.max(200, breakTime / speedFactor);
+            }
+            let progress = 0;
+            const progressBar = element.querySelector('.progress-fill');
+            game.breakingElements.set(element, {
+                progress: 0,
+                interval: setInterval(() => {
+                    progress += 100;
+                    const percent = Math.min(100, (progress / breakTime) * 100);
+                    game.breakingElements.get(element).progress = percent;
+                    if (progressBar) progressBar.style.width = `${percent}%`;
+                    if (progress >= breakTime) this.finishBreaking(element, resourceType, isTree);
+                }, 100),
+                isTree,
+                toolUsed
+            });
+            element.classList.add('breaking');
+        },
+        resetBreakingProgress(element) {
+            if (game.breakingElements.has(element)) {
+                const d = game.breakingElements.get(element);
+                clearInterval(d.interval);
+                element.classList.remove('breaking');
+                const bar = element.querySelector('.progress-fill');
+                if (bar) bar.style.width = '0%';
+                game.breakingElements.delete(element);
+            }
+        },
+        finishBreaking(element, resourceType, isTree) {
+            // 先读取进度信息（例如使用了何种工具），再清理
+            const info = game.breakingElements.get(element) || {};
+            this.resetBreakingProgress(element);
+            element.classList.add('broken');
+            setTimeout(() => {
+                element.remove();
+                if (isTree) {
+                    game.resources.wood++; game.currentTrees--;
+                    if (info.toolUsed === 'hardStoneAxe' && game.hardStoneAxeDurability > 0) {
+                        game.hardStoneAxeDurability--;
+                        if (game.hardStoneAxeDurability === 0) {
+                            game.resources.hardStoneAxe--;
+                            if (game.resources.hardStoneAxe > 0) game.hardStoneAxeDurability = 50;
+                        }
+                    } else if (info.toolUsed === 'axe' && game.axeDurability > 0) {
+                        game.axeDurability--;
+                        if (game.axeDurability === 0) {
+                            game.resources.axe--;
+                            if (game.resources.axe > 0) game.axeDurability = 10;
+                        }
+                    }
+                } else if (resourceType === 'fullVine') {
+                    game.resources.fullVine++;
+                } else {
+                    game.resources[resourceType]++;
+                }
+                this.updateInventory();
+            }, 500);
+        },
+        collectLeaf(leaf) {
+            if (!this.isWithinInteractRange(leaf, 2)) return;
+            if (game.resources.axe > 0 && game.axeDurability > 0) {
+                this.startBreaking(leaf, 'twig');
+                setTimeout(() => { game.resources.fullVine++; this.updateInventory(); }, 600);
+            } else {
+                this.startBreaking(leaf, Math.random() < 0.5 ? 'vine' : 'branch');
+            }
+        },
+        collectStone(stone) {
+            if (!this.isWithinInteractRange(stone, 2)) return; this.startBreaking(stone, 'stone');
+        },
+        chopTree(trunk, leaf) {
+            // 允许靠近即可砍树（不必完全相交），使用交互范围判定
+            if (!this.isWithinInteractRange(trunk, 2)) { this.showMessage('太远了！靠近后长按以砍树。'); return; }
+            if (game.resources.axe > 0 && game.axeDurability > 0) {
+                if (leaf && !game.breakingElements.has(leaf)) this.startBreaking(leaf, '', false);
+                if (!game.breakingElements.has(trunk)) this.startBreaking(trunk, 'wood', true);
+            } else {
+                this.showMessage('需要斧头才能砍树！');
+            }
+        },
+        checkRefreshButtonPosition() {
+            if (game.controlMode !== 'button') {
+                document.getElementById('refresh-button').style.display = 'none';
+                return;
+            }
+            const playerRect = elements.player.getBoundingClientRect();
+            const nearLeft = playerRect.left < 100;
+            const nearBottom = (window.innerHeight - playerRect.bottom) < 100;
+            document.getElementById('refresh-button').style.display = (nearLeft && nearBottom) ? 'flex' : 'none';
+        },
+        updateHoleButtons() {
+            // dig-hole 在按钮控制时显示
+            const digBtn = document.getElementById('dig-hole');
+            if (game.controlMode === 'button' && game.resources.pickaxe > 0 && game.pickaxeDurability >= 2 && !game.undergroundOpen) digBtn.style.display = 'block'; else digBtn.style.display = 'none';
+            // place-ladder and enter-underground
+            const placeBtn = document.getElementById('place-ladder'); const enterBtn = document.getElementById('enter-underground');
+            let nearHole = null; const pRect = elements.player.getBoundingClientRect(); const px = pRect.left + pRect.width/2, py = pRect.top + pRect.height/2;
+            for (const h of game.holes) { if (Math.hypot(h.x - px, h.y - py) < 80) { nearHole = h; break; } }
+            if (nearHole && !nearHole.hasLadder && game.resources.ladder > 0 && !game.undergroundOpen) placeBtn.style.display = 'block'; else placeBtn.style.display = 'none';
+            // enter only if ladder exists
+            const nearLadder = game.holes.find(h => h.hasLadder && Math.hypot(h.x - px, h.y - py) < 80);
+            if (nearLadder && !game.undergroundOpen) enterBtn.style.display = 'block'; else if (!game.undergroundOpen) enterBtn.style.display = 'none';
+        },
+        refreshMap() {
+            if (game.refreshCooldown) return;
+            game.refreshCooldown = true;
+            setTimeout(() => { game.refreshCooldown = false; }, 1000);
+            document.querySelectorAll('.tree-leaf, .tree-trunk, .stone, .portal, .crafting-table, .animal').forEach(el => el.remove());
+            game.currentTrees = 0; game.currentStones = 0; this.createWorld();
+            elements.player.style.visibility = 'hidden';
+            elements.player.style.left = '-100px'; elements.player.style.top = (window.innerHeight + 100) + 'px';
+            setTimeout(() => {
+                elements.player.style.left = '-100px'; elements.player.style.top = '-100px';
+                setTimeout(() => {
+                    elements.player.style.left = (window.innerWidth + 100) + 'px'; elements.player.style.top = '-100px';
+                    setTimeout(() => {
+                        game.player.x = window.innerWidth - 50; game.player.y = 0;
+                        elements.player.style.left = game.player.x + 'px'; elements.player.style.top = game.player.y + 'px';
+                    }, 100);
+                }, 100);
+            }, 100);
+            elements.player.style.visibility = 'visible';
+
+        },
+        setupJoystick() {
+            const area = document.getElementById('touch-joystick-area');
+            const thumb = document.getElementById('touch-joystick-thumb');
+            area.ontouchstart = area.ontouchmove = area.ontouchend = null;
+            area.addEventListener('touchstart', e => {
+                if (game.controlMode !== 'button') return;
+                e.preventDefault();
+                const t = e.touches[0], rect = area.getBoundingClientRect();
+                const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+                game.joystick.active = true; game.joystick.startX = cx; game.joystick.startY = cy;
+                game.joystick.currentX = t.clientX; game.joystick.currentY = t.clientY;
+                this.updateJoystickPosition();
+            }, { passive: false });
+            area.addEventListener('touchmove', e => {
+                if (!game.joystick.active) return;
+                e.preventDefault();
+                const t = e.touches[0];
+                game.joystick.currentX = t.clientX; game.joystick.currentY = t.clientY;
+                this.updateJoystickPosition(); this.updatePlayerMovement();
+            }, { passive: false });
+            area.addEventListener('touchend', e => {
+                if (!game.joystick.active) return;
+                e.preventDefault();
+                game.joystick.active = false; thumb.style.transform = 'translate(0, 0)';
+                this.stopContinuousMove();
+            }, { passive: false });
+            area.addEventListener('mousedown', e => {
+                if (game.controlMode !== 'button') return;
+                const rect = area.getBoundingClientRect();
+                const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+                game.joystick.active = true; game.joystick.startX = cx; game.joystick.startY = cy;
+                game.joystick.currentX = e.clientX; game.joystick.currentY = e.clientY;
+                this.updateJoystickPosition();
+            });
+            document.addEventListener('mousemove', e => {
+                if (!game.joystick.active) return;
+                game.joystick.currentX = e.clientX; game.joystick.currentY = e.clientY;
+                this.updateJoystickPosition(); this.updatePlayerMovement();
+            });
+            document.addEventListener('mouseup', () => {
+                if (!game.joystick.active) return;
+                game.joystick.active = false; thumb.style.transform = 'translate(0, 0)';
+                this.stopContinuousMove();
+            });
+        },
+        updateJoystickPosition() {
+            const thumb = document.getElementById('touch-joystick-thumb');
+            const joystick = document.getElementById('touch-joystick');
+            const rect = joystick.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+            const dx = game.joystick.currentX - game.joystick.startX;
+            const dy = game.joystick.currentY - game.joystick.startY;
+            const dist = Math.sqrt(dx * dx + dy * dy), maxDist = 35;
+            if (dist > maxDist) {
+                const angle = Math.atan2(dy, dx);
+                thumb.style.transform = `translate(${Math.cos(angle) * maxDist}px, ${Math.sin(angle) * maxDist}px)`;
+            } else {
+                thumb.style.transform = `translate(${dx}px, ${dy}px)`;
+            }
+        },
+        updatePlayerMovement() {
+            if (!game.joystick.active) return;
+            const dx = game.joystick.currentX - game.joystick.startX;
+            const dy = game.joystick.currentY - game.joystick.startY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 10) { this.stopContinuousMove(); return; }
+            const angle = Math.atan2(dy, dx);
+            let dir = '';
+            if (angle > -Math.PI/4 && angle < Math.PI/4) dir = 'right';
+            else if (angle >= Math.PI/4 && angle < 3*Math.PI/4) dir = 'down';
+            else if (angle >= -3*Math.PI/4 && angle <= -Math.PI/4) dir = 'up';
+            else dir = 'left';
+            this.startContinuousMove(dir);
+        },
+        gameLoop() {
+            if (!game.isRunning) return;
+            this.checkRefreshButtonPosition();
+            // 采集由玩家靠近并长按触发（已移除自动采集逻辑）
+            // 主循环更新按钮
+            this.updateReclaimTableBtn();
+            this.updateReclaimFurnaceBtn();
+            this.updateHoleButtons();
+            requestAnimationFrame(() => this.gameLoop());
+        },
+        setupEventListeners() {
+            if (game._listenersBound) return; game._listenersBound = true;
+            bindBtn('craft-wooden-sword', () => this.craftWoodenSword());
+            bindBtn('craft-axe', () => this.craftAxe());
+            bindBtn('craft-table', () => this.craftTable());
+            bindBtn('craft-pickaxe', () => this.craftPickaxe());
+            bindBtn('craft-vine', () => this.craftVine());
+            bindBtn('craft-branch', () => this.craftBranch());
+            bindBtn('craft-ladder', () => this.craftLadder());
+            bindBtn('craft-stone-pickaxe', () => this.craftStonePickaxe());
+            bindBtn('smelt-hardstone', () => this.smeltHardStone());
+            bindBtn('next-page', () => craftingPagination.nextPage());
+            bindBtn('dig-hole', () => this.digHole());
+            bindBtn('place-ladder', () => this.placeLadder());
+            bindBtn('enter-underground', () => this.enterUnderground());
+            bindBtn('exit-underground', () => this.exitUnderground());
+            bindBtn('prev-page', () => { craftingPagination.prevPage(); this.renderCraftingUI(); });
+            bindBtn('next-page', () => { craftingPagination.nextPage(); this.renderCraftingUI(); });
+            bindBtn('refresh-button', () => { if (game.controlMode === 'button') this.refreshMap(); });
+            bindBtn('inventory-btn', () => this.toggleInventory());
+            bindBtn('touch-crafting', () => {
+                if (game.controlMode === 'button') {
+                    game.craftingPage = 1;
+                    this.renderCraftingUI();
+                    this.togglePopup(elements.popups.crafting);
+                }
+            });
+            bindBtn('close-message', () => {
+                elements.popups.message.style.display = 'none';
+                if (elements.popups.crafting && elements.popups.crafting.style.display === 'block') this.renderCraftingUI();
+                if (game.controlMode === 'button') this.showButtonControls();
+            });
+            // 点击空白处（按钮模式）关闭所有弹窗，支持用户直接点空白收起
+            document.addEventListener('click', (e) => {
+                if (game.controlMode !== 'button') return;
+                const anyOpen = (elements.popups.crafting && elements.popups.crafting.style.display === 'block') ||
+                                (elements.popups.message && elements.popups.message.style.display === 'block') ||
+                                (document.getElementById('fuel-popup') && document.getElementById('fuel-popup').style.display === 'block');
+                if (!anyOpen) return;
+                // 如果点击目标不在弹窗内且不是触发合成按钮，则关闭
+                const clickedInPopup = e.target.closest('.popup');
+                const clickedTouchCraft = e.target.closest('#touch-crafting');
+                if (!clickedInPopup && !clickedTouchCraft) {
+                    this.closeAllPopups();
+                }
+            });
+            bindBtn('smelt-cooked-meat', () => gameFunctions.smeltCookedMeat());
+            const startGame = mode => {
+                elements.startScreen.style.display = 'none';
+                document.getElementById('player-health-bar').style.display = 'block';
+                game.controlMode = mode;
+                if (mode === 'button') {
+                    elements.buttons.touchControls.style.display = 'flex';
+                    elements.inventoryBtn.style.display = 'block';
+                    document.getElementById('touch-crafting').style.display = 'flex';
+                    document.getElementById('refresh-button').style.display = 'flex';
+                } else {
+                    elements.buttons.touchControls.style.display = 'none';
+                    document.getElementById('touch-joystick-area').style.display = 'block';
+                    elements.inventoryBtn.style.display = 'none';
+                    document.getElementById('touch-crafting').style.display = 'none';
+                    document.getElementById('refresh-button').style.display = 'none';
+                }
+                game.isRunning = true;
+                if (mode === 'button') this.setupJoystick();
+                this.gameLoop();
+            };
+            bindBtn('keyboard-control', () => startGame('keyboard'));
+            bindBtn('button-control', () => startGame('button'));
+            document.addEventListener('keydown', e => {
+                if (game.controlMode !== 'keyboard') return;
+                const craftingOpen = elements.popups.crafting.style.display === 'block';
+                const inventoryOpen = elements.inventoryPanel.style.display === 'flex';
+                const messageOpen = elements.popups.message.style.display === 'block';
+                if (messageOpen) { e.preventDefault(); return; }
+                if (craftingOpen) { if (e.key.toLowerCase() === 'c') elements.popups.crafting.style.display = 'none'; e.preventDefault(); return; }
+                if (inventoryOpen) { if (e.key.toLowerCase() === 'i') { elements.inventoryPanel.style.display = 'none'; game.inventoryOpen = false; } e.preventDefault(); return; }
+                if (e.key.toLowerCase() === 'f') {
+                    let found = false;
+                    document.querySelectorAll('.crafting-table').forEach(table => {
+                        const a = table.getBoundingClientRect(), b = elements.player.getBoundingClientRect();
+                        const d = Math.sqrt(Math.pow(a.left + a.width/2 - (b.left + b.width/2), 2) + Math.pow(a.top + a.height/2 - (b.top + b.height/2), 2));
+                        if (d < 100 && !found) {
+                            table.remove();
+                            game.resources.craftingTable = (game.resources.craftingTable || 0) + 1;
+                            gameFunctions.updateInventory();
+                            found = true;
+                        }
+                    });
+                    return;
+                }
+                let dir = null;
+                switch (e.key.toLowerCase()) {
+                    case 'c':
+                        game.craftingPage = 1;
+                        this.renderCraftingUI();
+                        this.togglePopup(elements.popups.crafting);
+                        return;
+                    case 'i': this.toggleInventory(); return;
+                    case 'o': this.digHole(); return;
+                    case 'w': dir = 'up'; break;
+                    case 's': dir = 'down'; break;
+                    case 'a': dir = 'left'; break;
+                    case 'd': dir = 'right'; break;
+                    case 'r':
+                        const playerRect = elements.player.getBoundingClientRect();
+                        if (playerRect.left < 100 && (window.innerHeight - playerRect.bottom) < 100) this.refreshMap();
+                        break;
+                }
+                if (dir) {
+                    if (game.keyboardInterval) clearInterval(game.keyboardInterval);
+                    game.keyboardDirection = dir; this.movePlayer(dir);
+                    game.keyboardInterval = setInterval(() => this.movePlayer(dir), 50);
+                }
+            });
+            document.addEventListener('keyup', e => {
+                if (game.controlMode === 'keyboard' && ['w', 'a', 's', 'd'].includes(e.key.toLowerCase())) {
+                    if (game.keyboardInterval) clearInterval(game.keyboardInterval);
+                    game.keyboardInterval = null; game.keyboardDirection = null; this.stopMoving();
+                }
+            });
+            window.addEventListener('resize', () => {
+                game.player.x = Math.min(window.innerWidth - 50, game.player.x);
+                game.player.y = Math.min(window.innerHeight - 50, game.player.y);
+                elements.player.style.left = game.player.x + 'px';
+                elements.player.style.top = game.player.y + 'px';
+            });
+        },
+        showButtonControls() {
+            if (game.controlMode === 'button' && !game.inventoryOpen && elements.popups.message.style.display === 'none') {
+                if (elements.popups.crafting.style.display === 'block') {
+                    elements.buttons.touchControls.style.display = 'none';
+                    document.getElementById('touch-joystick-area').style.display = 'none';
+                    elements.inventoryBtn.style.display = 'none';
+                    document.getElementById('touch-crafting').style.display = 'flex';
+                    this.checkRefreshButtonPosition();
+                } else {
+                    elements.buttons.touchControls.style.display = 'flex';
+                    document.getElementById('touch-joystick-area').style.display = 'block';
+                    elements.inventoryBtn.style.display = 'flex';
+                    document.getElementById('touch-crafting').style.display = 'flex';
+                    this.checkRefreshButtonPosition();
+                }
+            }
+        },
+
+        updateReclaimTableBtn() {
+            const reclaimBtn = document.getElementById('reclaim-table-btn');
+            let near = false;
+            document.querySelectorAll('.crafting-table').forEach(table => {
+                const a = table.getBoundingClientRect(), b = elements.player.getBoundingClientRect();
+                const d = Math.sqrt(Math.pow(a.left + a.width/2 - (b.left + b.width/2), 2) + Math.pow(a.top + a.height/2 - (b.top + b.height/2), 2));
+                if (d < 100) near = true;
+            });
+            reclaimBtn.style.display = near ? 'block' : 'none';
+        },
+        updateReclaimFurnaceBtn() {
+            let near = false;
+            document.querySelectorAll('.furnace').forEach(furnace => {
+                const a = furnace.getBoundingClientRect(), b = elements.player.getBoundingClientRect();
+                const d = Math.sqrt(Math.pow(a.left + a.width / 2 - (b.left + b.width / 2), 2) + Math.pow(a.top + a.height / 2 - (b.top + b.height / 2), 2));
+                if (d < 100) near = true;
+            });
+            let furnaceBtn = document.getElementById('reclaim-furnace-btn');
+            if (!furnaceBtn) {
+                furnaceBtn = document.createElement('button');
+                furnaceBtn.id = 'reclaim-furnace-btn';
+                furnaceBtn.className = 'btn';
+                furnaceBtn.style.position = 'fixed';
+                furnaceBtn.style.bottom = '160px';
+                furnaceBtn.style.right = '20px';
+                furnaceBtn.style.zIndex = '101';
+                furnaceBtn.textContent = '收回熔炉';
+                document.body.appendChild(furnaceBtn);
+                // 绑定点击事件
+                furnaceBtn.onclick = function () {
+                    let found = false;
+                    document.querySelectorAll('.furnace').forEach(furnace => {
+                        const a = furnace.getBoundingClientRect(), b = elements.player.getBoundingClientRect();
+                        const d = Math.sqrt(Math.pow(a.left + a.width / 2 - (b.left + b.width / 2), 2) + Math.sqrt(a.top + a.height / 2 - (b.top + b.height / 2), 2));
+                        if (d < 100 && !found) {
+                            furnace.remove();
+                            game.resources.furnace = (game.resources.furnace || 0) + 1;
+                            gameFunctions.updateInventory();
+                            found = true;
+                        }
+                    });
+                    if (!found) gameFunctions.showMessage("请靠近熔炉再点击收回！");
+                };
+            }
+            furnaceBtn.style.display = near ? 'block' : 'none';
+        },
+        bindReclaimTableBtn() {
+            const reclaimBtn = document.getElementById('reclaim-table-btn');
+            reclaimBtn.onclick = function () {
+                let found = false;
+                document.querySelectorAll('.crafting-table').forEach(table => {
+                    const a = table.getBoundingClientRect(), b = elements.player.getBoundingClientRect();
+                    const d = Math.sqrt(Math.pow(a.left + a.width/2 - (b.left + b.width/2), 2) + Math.pow(a.top + a.height/2 - (b.top + b.height/2), 2));
+                    if (d < 100 && !found) {
+                        table.remove();
+                        game.resources.craftingTable = (game.resources.craftingTable || 0) + 1;
+                        gameFunctions.updateInventory();
+                        found = true;
+                    }
+                });
+            };
+        },
+        bindReclaimFurnaceBtn() {
+            let furnaceBtn = document.getElementById('reclaim-furnace-btn');
+            if (!furnaceBtn) return;
+            furnaceBtn.onclick = function () {
+                let found = false;
+                document.querySelectorAll('.furnace').forEach(furnace => {
+                    const a = furnace.getBoundingClientRect(), b = elements.player.getBoundingClientRect();
+                    const d = Math.sqrt(Math.pow(a.left + a.width / 2 - (b.left + b.width / 2), 2) + Math.sqrt(a.top + a.height / 2 - (b.top + b.height / 2), 2));
+                    if (d < 100 && !found) {
+                        furnace.remove();
+                        game.resources.furnace = (game.resources.furnace || 0) + 1;
+                        gameFunctions.updateInventory();
+                        found = true;
+                    }
+                });
+                if (!found) gameFunctions.showMessage("请靠近熔炉再点击收回！");
+            };
+        },
+
+        setupFurnacePlaceAndReclaim() {
+            // 摆放熔炉逻辑已移除（由 inventory 项的 onclick 处理）
+            // 收回熔炉按钮
+            let furnaceBtn = document.getElementById('reclaim-furnace-btn');
+            if (!furnaceBtn) {
+                furnaceBtn = document.createElement('button');
+                furnaceBtn.id = 'reclaim-furnace-btn';
+                furnaceBtn.className = 'btn';
+                furnaceBtn.style.position = 'fixed';
+                furnaceBtn.style.bottom = '160px';
+                furnaceBtn.style.right = '20px';
+                furnaceBtn.style.zIndex = '101';
+                furnaceBtn.style.display = 'none';
+                furnaceBtn.textContent = '收回熔炉';
+                document.body.appendChild(furnaceBtn);
+            }
+            function updateReclaimFurnaceBtn() {
+                let near = false;
+                document.querySelectorAll('.furnace').forEach(furnace => {
+                    const a = furnace.getBoundingClientRect(), b = elements.player.getBoundingClientRect();
+                    const d = Math.sqrt(Math.pow(a.left + a.width / 2 - (b.left + b.width / 2), 2) + Math.sqrt(a.top + a.height / 2 - (b.top + b.height / 2), 2));
+                    if (d < 100) near = true;
+                });
+                furnaceBtn.style.display = near ? 'block' : 'none';
+            }
+            furnaceBtn.onclick = function () {
+                let found = false;
+                document.querySelectorAll('.furnace').forEach(furnace => {
+                    const a = furnace.getBoundingClientRect(), b = elements.player.getBoundingClientRect();
+                    const d = Math.sqrt(Math.pow(a.left + a.width / 2 - (b.left + b.width / 2), 2) + Math.sqrt(a.top + a.height / 2 - (b.top + b.height / 2), 2));
+                    if (d < 100 && !found) {
+                        furnace.remove();
+                        game.resources.furnace = (game.resources.furnace || 0) + 1;
+                        gameFunctions.updateInventory();
+                        found = true;
+                    }
+                });
+                if (!found) gameFunctions.showMessage("请靠近熔炉再点击收回！");
+            };
+            // 在主循环和玩家移动后调用
+            const oldMovePlayer = gameFunctions.movePlayer;
+            gameFunctions.movePlayer = function (direction) {
+                oldMovePlayer.call(this, direction);
+                updateReclaimFurnaceBtn();
+            };
+            const oldGameLoop = gameFunctions.gameLoop;
+            gameFunctions.gameLoop = function () {
+                updateReclaimFurnaceBtn();
+                oldGameLoop.call(this);
+            };
+        }
+    };
+    // setupFurnacePlaceAndReclaim 已合并到 gameFunctions.setupFurnacePlaceAndReclaim();
+    gameFunctions.init();
+    gameFunctions.setupFurnacePlaceAndReclaim();
+    // 初始化燃料UI
+    updateFurnaceFuelUI();
+    // 初始化按钮事件
+    gameFunctions.bindReclaimTableBtn();
+    gameFunctions.bindReclaimFurnaceBtn();
+    // 收回工作台按钮样式与隐藏
+    const reclaimBtn = document.getElementById('reclaim-table-btn');
+    reclaimBtn.className = 'btn';
+    reclaimBtn.style.display = 'none';
+    // 熔炉合成按钮
+    const craftFurnaceBtn = document.getElementById('craft-furnace');
+    if (craftFurnaceBtn) {
+        craftFurnaceBtn.addEventListener('click', function () {
+            // 判断是否靠近合成台
+            if (game.resources.stone >= 10 && gameFunctions.checkNearCraftingTable()) {
+                game.resources.stone -= 10;
+                game.resources.furnace = (game.resources.furnace || 0) + 1;
+                gameFunctions.updateInventory();
+                gameFunctions.showMessage("制作了一个熔炉！");
+                if (typeof gameFunctions.updateCraftingButtons === 'function') gameFunctions.updateCraftingButtons();
+            } else if (game.resources.stone < 10) {
+                gameFunctions.showMessage("材料不足！需要10个石子");
+            } else {
+                gameFunctions.showMessage("需要靠近合成台才能制作熔炉！");
+            }
+        });
+    }
+    // 删除原有的 updateReclaimTableBtn、updateReclaimFurnaceBtn、按钮事件等相关外部代码
+
+    function updateFurnaceFuelUI() {
+        const el = document.getElementById('furnace-fuel-value');
+        if (!el) return; // element might not be present in some layouts
+        el.textContent = String(game.furnaceFuel || 0);
+    }
+
+    function showFuelPopup() {
+        // 确保一次只显示一个弹窗
+        if (typeof gameFunctions.closeAllPopups === 'function') gameFunctions.closeAllPopups();
+        const popup = document.getElementById('fuel-popup');
+        const options = document.getElementById('fuel-options');
+        if (!popup || !options) { console.warn('showFuelPopup: required DOM elements missing'); return; }
+        options.innerHTML = '';
+        // 可燃物品及其燃料值
+        const fuels = [
+            { key: 'fuelOre', name: '燃矿', value: 1000, color: '#ff8800' },
+            { key: 'branch', name: '木棍', value: 20, color: '#A0522D' },
+            { key: 'twig', name: '树枝', value: 60, color: '#8B5A2B' },
+            { key: 'wood', name: '木材', value: 200, color: '#A0522D' }
+        ];
+        let hasFuel = false;
+        fuels.forEach(fuel => {
+            if ((game.resources[fuel.key]||0) > 0) {
+                hasFuel = true;
+                const btn = document.createElement('button');
+                btn.className = 'btn';
+                btn.style.margin = '5px';
+                btn.innerHTML = `<span style="background:${fuel.color};color:#fff;padding:4px 10px;border-radius:8px;">${fuel.name}</span> ×1 → <span style="color:#FF8C00;">+${fuel.value}燃料</span>`;
+                btn.onclick = function () {
+                    game.resources[fuel.key]--;
+                    game.furnaceFuel += fuel.value;
+                    updateFurnaceFuelUI();
+                    if (typeof gameFunctions.updateInventory === 'function') gameFunctions.updateInventory();
+                    showFuelPopup(); // 刷新弹窗
+                    if (typeof gameFunctions.updateCraftingButtons === 'function') gameFunctions.updateCraftingButtons();
+                };
+                options.appendChild(btn);
+            }
+        });
+        // 快速将所有燃矿批量转换为燃料
+        if ((game.resources.fuelOre||0) > 0) {
+            const bulk = document.createElement('button');
+            bulk.className = 'btn'; bulk.style.margin='5px'; bulk.textContent = '全部转换燃矿';
+            bulk.onclick = function(){ const cnt = game.resources.fuelOre; if (cnt<=0) return; game.resources.fuelOre = 0; game.furnaceFuel += cnt * 1000; updateFurnaceFuelUI(); if (typeof gameFunctions.updateInventory === 'function') gameFunctions.updateInventory(); showFuelPopup(); if (typeof gameFunctions.updateCraftingButtons === 'function') gameFunctions.updateCraftingButtons(); };
+            options.appendChild(bulk);
+        }
+        if (!hasFuel) {
+            options.innerHTML = '<div style="color:#fff;text-align:center;">没有可用燃料物品</div>';
+        }
+        popup.style.display = 'block';
+    }
+    const addFuelBtn = document.getElementById('add-fuel-btn');
+    if (addFuelBtn) addFuelBtn.onclick = function () {
+        if (!gameFunctions.checkNearFurnace()) {
+            gameFunctions.showMessage("需要靠近熔炉才能添加燃料！");
+            return;
+        }
+        showFuelPopup();
+    };
+    const closeFuelBtn = document.getElementById('close-fuel-popup');
+    if (closeFuelBtn) closeFuelBtn.onclick = function () {
+        const fp = document.getElementById('fuel-popup'); if (fp) fp.style.display = 'none';
+        if (elements.popups.crafting && elements.popups.crafting.style.display === 'block') gameFunctions.renderCraftingUI();
+        if (typeof gameFunctions.updateCraftingButtons === 'function') gameFunctions.updateCraftingButtons();
+    };
+    // 在页面内添加自动化测试函数，便于在浏览器中运行并调试
+    async function runAutomatedTests() {
+        const results = [];
+        const wait = ms => new Promise(r => setTimeout(r, ms));
+        const push = (name, pass, val) => { results.push({ test: name, pass, val }); console.log('TEST', name, pass, val); };
+        // Start game in keyboard mode
+        document.getElementById('keyboard-control').click();
+        await wait(200);
+        // Test 1: craft axe (keyboard mode)
+        game.resources.stone = 1; game.resources.branch = 1; game.resources.vine = 1;
+        gameFunctions.renderCraftingUI(); await wait(50);
+        const btnAxe = document.querySelector('[id^="dyn-craft-axe"]');
+        if (btnAxe) { btnAxe.click(); await wait(100); }
+        push('craft axe', (game.resources.axe||0) > 0, game.resources.axe || 0);
+        // Test 1b: inventory button toggles (button mode)
+        document.getElementById('button-control').click(); await wait(100);
+        document.getElementById('inventory-btn').click(); await wait(50);
+        push('inventory open by button', elements.inventoryPanel.style.display === 'flex', elements.inventoryPanel.style.display);
+        document.getElementById('inventory-btn').click(); await wait(50);
+        push('inventory close by button', elements.inventoryPanel.style.display === 'none', elements.inventoryPanel.style.display);
+        // Test 1c: craft via touch button (button mode)
+        // ensure in button mode and resources available
+        document.getElementById('touch-crafting').click(); await wait(100);
+        game.resources.stone = 1; game.resources.branch = 1; game.resources.vine = 1;
+        // renderCraftingUI should be called by togglePopup; wait and click dyn craft
+        await wait(50);
+        const btnAxeTouch = document.querySelector('[id^="dyn-craft-axe"]');
+        if (btnAxeTouch) { btnAxeTouch.click(); await wait(100); }
+        push('craft axe touch', (game.resources.axe||0) > 0, game.resources.axe || 0);
+        // Test 2: craft stone pickaxe (place crafting table)
+        game.resources.fullVine = 1; game.resources.twig = 1; game.resources.stoneBlock = 1;
+        const rect = elements.player.getBoundingClientRect(); gameFunctions.createCraftingTable(rect.left + rect.width/2 - 30, rect.top + rect.height/2 - 30);
+        gameFunctions.renderCraftingUI(); await wait(100);
+        const btnStonePick = document.querySelector('[id^="dyn-craft-stonePickaxe"]'); if (btnStonePick) { btnStonePick.click(); await wait(100); }
+        push('craft stone pickaxe', (game.resources.stonePickaxe||0) > 0, game.resources.stonePickaxe || 0);
+        // Test 3: dig hole
+        game.resources.pickaxe = 1; game.pickaxeDurability = 10; gameFunctions.digHole(); await wait(200);
+        push('dig hole', (game.holes && game.holes.length>0), game.holes.length);
+        // Test 4: place ladder
+        game.resources.ladder = 1; const h = game.holes[0]; if (h) { game.currentHole = h; gameFunctions.placeLadder(); }
+        await wait(100); push('place ladder', !!(game.holes[0] && game.holes[0].hasLadder), game.holes[0] && game.holes[0].hasLadder);
+        // Test 5: enter underground
+        if (game.holes.find(h=>h.hasLadder)) { gameFunctions.enterUnderground(game.holes.find(h=>h.hasLadder)); await wait(400); }
+        push('enter underground', !!game.undergroundOpen, game.undergroundOpen);
+        // Test 6: mine a tile
+        game.resources.stonePickaxe = (game.resources.stonePickaxe||0)+1; game.stonePickaxeDurability = 30;
+        const tile = document.querySelector('.ug-container .ug-tile[data-type]'); if (tile) { tile.click(); await wait(1200); }
+        push('mine underground tile', (game.resources.stoneBlock||0)>0, game.resources.stoneBlock || 0);
+        // Test 7: smelt hard stone
+        game.resources.hardStoneOre = 1; game.furnaceFuel = 500; const pr = elements.player.getBoundingClientRect(); gameFunctions.createElement('furnace', pr.left+10, pr.top+10, 50,50);
+        await wait(100); gameFunctions.smeltHardStone(); await wait(200);
+        push('smelt hard stone', (game.resources.hardStoneBlock||0)>0 && game.furnaceFuel < 500, {hard: game.resources.hardStoneBlock || 0, fuel: game.furnaceFuel});
+        // Ensure UI mutual exclusion: open crafting then add fuel should close crafting
+        gameFunctions.renderCraftingUI(); elements.popups.crafting.style.display = 'block'; await wait(50);
+        document.getElementById('add-fuel-btn').click(); await wait(50);
+        const craftingOpen = elements.popups.crafting.style.display === 'block'; const fuelOpen = document.getElementById('fuel-popup').style.display === 'block';
+        push('popup mutual exclusion', (!craftingOpen && fuelOpen) || (!fuelOpen && !craftingOpen), {craftingOpen, fuelOpen});
+        // Show aggregated results
+        const passed = results.filter(r => r.pass).length, total = results.length;
+        alert(`自动化测试完成：${passed} / ${total} 通过。\n详细请查看控制台。`);
+        console.log('AUTOTEST RESULTS', results);
+        return results;
+    }
+    // 绑定按钮
+    document.getElementById('run-tests-btn').onclick = () => { runAutomatedTests(); };
+    </script>
+</body>
+</html>
